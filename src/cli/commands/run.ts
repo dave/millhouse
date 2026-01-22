@@ -1,6 +1,8 @@
 import chalk from 'chalk';
 import ora from 'ora';
 import readline from 'node:readline';
+import path from 'node:path';
+import os from 'node:os';
 import { promises as fs } from 'node:fs';
 import { Orchestrator } from '../../core/orchestrator.js';
 import { loadConfig } from '../../storage/config.js';
@@ -92,15 +94,39 @@ export async function runCommand(options: RunOptions): Promise<void> {
   }
 }
 
+async function resolvePlanPath(planPath: string): Promise<string> {
+  // First, try the path as given
+  try {
+    await fs.access(planPath);
+    return planPath;
+  } catch {
+    // Not found locally
+  }
+
+  // If it's just a filename (no directory), check ~/.claude/plans/
+  if (!planPath.includes(path.sep) && !planPath.startsWith('.')) {
+    const claudePlansPath = path.join(os.homedir(), '.claude', 'plans', planPath);
+    try {
+      await fs.access(claudePlansPath);
+      return claudePlansPath;
+    } catch {
+      // Not found there either
+    }
+  }
+
+  // Return original path - will fail with helpful error
+  return planPath;
+}
+
 async function runPlanMode(options: RunOptions): Promise<void> {
   const spinner = ora('Initializing Millhouse (plan mode)...').start();
 
   try {
     const concurrency = parseInt(options.concurrency || '8', 10);
 
-    // Load plan from file
+    // Load plan from file (check ~/.claude/plans/ if not found locally)
     spinner.text = 'Loading plan...';
-    const planPath = options.plan!;
+    const planPath = await resolvePlanPath(options.plan!);
     const planContent = await fs.readFile(planPath, 'utf-8');
     spinner.succeed(`Loaded plan from ${planPath}`);
 
