@@ -1,0 +1,14 @@
+{
+  "execution": {
+    "concurrency": 3,
+    "baseBranch": "main",
+    "maxBudgetPerIssue": 5.0,
+    "maxTotalBudget": 100.0,
+    "continueOnError": true
+  },
+  "pullRequests": {
+    "createAsDraft": true,
+    "mergeStrategy": "squash",
+    "branchPrefix": "millhouse/issue-"
+  }
+}
