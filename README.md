@@ -45,7 +45,7 @@ The scheduler:
 ### 4. Parallel Execution with Git Worktrees
 
 Each issue runs in complete isolation:
-- Creates a branch: `millhouse/run-{runId}/issue-{N}`
+- Creates a branch: `millhouse/run-{runId}-issue-{N}`
 - Creates a git worktree in `.millhouse/worktrees/issue-{N}`
 - Claude Code runs in that worktree with full autonomy
 - Changes are committed to the issue's branch

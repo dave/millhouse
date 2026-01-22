@@ -57,7 +57,8 @@ export class WorktreeManager {
 
     const worktreePath = path.join(this.worktreesDir, `issue-${issueNumber}`);
     // Each issue gets its own branch forked from the run branch
-    const issueBranch = `${runBranch}/issue-${issueNumber}`;
+    // Use -issue- instead of /issue- to avoid git ref conflicts
+    const issueBranch = `${runBranch}-issue-${issueNumber}`;
 
     // Remove existing worktree if any
     await this.removeWorktree(worktreePath).catch(() => {});
