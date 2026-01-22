@@ -1,6 +1,6 @@
 {
   "execution": {
-    "concurrency": 3,
+    "concurrency": 8,
     "baseBranch": "main",
     "maxBudgetPerIssue": 5.0,
     "maxTotalBudget": 100.0,

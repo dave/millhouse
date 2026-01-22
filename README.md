@@ -145,7 +145,7 @@ millhouse run --dry-run
 # Specific issues only (no recursive discovery)
 millhouse run --issues 1,2,3
 
-# Adjust parallelism (default: 3)
+# Adjust parallelism (default: 8)
 millhouse run -n 5
 ```
 
@@ -193,7 +193,7 @@ Create `.millhouserc.json` in your project root:
 ```json
 {
   "execution": {
-    "concurrency": 3,
+    "concurrency": 8,
     "baseBranch": "main",
     "continueOnError": true
   },
@@ -207,7 +207,7 @@ Create `.millhouserc.json` in your project root:
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `concurrency` | Max parallel Claude instances | 3 |
+| `concurrency` | Max parallel Claude instances | 8 |
 | `baseBranch` | Branch to base work on | main |
 | `continueOnError` | Keep going if one issue fails | true |
 | `createAsDraft` | Create PR as draft | true |

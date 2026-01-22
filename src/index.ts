@@ -18,7 +18,7 @@ program
   .description('Start working on GitHub issues')
   .option('-i, --issue <number>', 'Root issue number (recursively includes linked issues)')
   .option('--issues <numbers>', 'Comma-separated list of specific issue numbers')
-  .option('-n, --concurrency <number>', 'Number of parallel workers', '3')
+  .option('-n, --concurrency <number>', 'Number of parallel workers', '8')
   .option('--dry-run', 'Analyze and plan without executing')
   .option('--dangerously-skip-permissions', 'Skip permission prompts in spawned Claude instances')
   .action(runCommand);

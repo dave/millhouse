@@ -24,7 +24,7 @@ export async function runCommand(options: RunOptions): Promise<void> {
   const spinner = ora('Initializing Millhouse...').start();
 
   try {
-    const concurrency = parseInt(options.concurrency || '3', 10);
+    const concurrency = parseInt(options.concurrency || '8', 10);
 
     spinner.text = 'Loading configuration...';
     const config = await loadConfig();
