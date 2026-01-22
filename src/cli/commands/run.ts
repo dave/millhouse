@@ -24,14 +24,6 @@ export async function runCommand(options: RunOptions): Promise<void> {
   const spinner = ora('Initializing Millhouse...').start();
 
   try {
-    // Parse issue numbers
-    const issueNumbers = parseIssueNumbers(options);
-    if (issueNumbers.length === 0) {
-      spinner.fail('No issues specified. Use --issue or --issues');
-      process.exit(1);
-    }
-
-    const recursive = !!options.issue && !options.issues;
     const concurrency = parseInt(options.concurrency || '3', 10);
 
     spinner.text = 'Loading configuration...';
@@ -40,6 +32,25 @@ export async function runCommand(options: RunOptions): Promise<void> {
     // Initialize components
     spinner.text = 'Connecting to GitHub...';
     const githubClient = new GitHubClient();
+
+    // Parse issue numbers or fetch all open issues
+    let issueNumbers = parseIssueNumbers(options);
+    let recursive = !!options.issue && !options.issues;
+
+    if (issueNumbers.length === 0) {
+      spinner.text = 'Fetching all open issues...';
+      const openIssues = await githubClient.listOpenIssues();
+      issueNumbers = openIssues.map(i => i.number);
+      recursive = false; // Already have all issues
+
+      if (issueNumbers.length === 0) {
+        spinner.fail('No open issues found in this repository');
+        process.exit(1);
+      }
+      spinner.succeed(`Found ${issueNumbers.length} open issue(s)`);
+    } else {
+      spinner.succeed('Initialized');
+    }
     const store = new JsonStore();
     const labelManager = new LabelManager(githubClient);
     const issueDiscoverer = new IssueDiscoverer(githubClient);

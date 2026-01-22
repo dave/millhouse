@@ -126,14 +126,17 @@ This is interactive and works well within Claude Code's timeout limits.
 Run millhouse directly from your terminal for execution - especially for overnight or long-running jobs:
 
 ```bash
+# Run all open issues in the repository
+millhouse run
+
 # Run issue #5 and all its dependencies
 millhouse run --issue 5
 
 # With skipped permissions for unattended execution
-millhouse run --issue 5 --dangerously-skip-permissions
+millhouse run --dangerously-skip-permissions
 
 # Dry run to preview the execution plan
-millhouse run --issue 5 --dry-run
+millhouse run --dry-run
 ```
 
 ### More CLI Options
@@ -143,7 +146,7 @@ millhouse run --issue 5 --dry-run
 millhouse run --issues 1,2,3
 
 # Adjust parallelism (default: 3)
-millhouse run --issue 5 -n 5
+millhouse run -n 5
 ```
 
 ### Check Status

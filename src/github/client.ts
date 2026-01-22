@@ -94,6 +94,42 @@ export class GitHubClient {
     return Promise.all(promises);
   }
 
+  async listOpenIssues(): Promise<GitHubIssue[]> {
+    const issues: GitHubIssue[] = [];
+    let page = 1;
+
+    while (true) {
+      const response = await this.octokit.issues.listForRepo({
+        owner: this.owner,
+        repo: this.repo,
+        state: 'open',
+        per_page: 100,
+        page,
+      });
+
+      if (response.data.length === 0) break;
+
+      for (const issue of response.data) {
+        // Skip pull requests (GitHub API returns them as issues)
+        if (issue.pull_request) continue;
+
+        issues.push({
+          number: issue.number,
+          title: issue.title,
+          body: issue.body ?? null,
+          state: issue.state as 'open' | 'closed',
+          labels: issue.labels.map(l => (typeof l === 'string' ? l : l.name || '')),
+          url: issue.url,
+          htmlUrl: issue.html_url,
+        });
+      }
+
+      page++;
+    }
+
+    return issues;
+  }
+
   async addLabels(issueNumber: number, labels: string[]): Promise<void> {
     await this.octokit.issues.addLabels({
       owner: this.owner,
