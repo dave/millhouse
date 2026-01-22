@@ -16,8 +16,8 @@ If no subcommand is given (empty $ARGUMENTS), just output this usage text and st
 Millhouse - orchestrate parallel Claude Code instances
 
 Slash commands (run inside Claude Code):
-  /millhouse plan [file]     Refine a plan for parallel execution
-  /millhouse issues [file]   Create GitHub issues from a plan
+  /millhouse plan [file]     Refine a plan (omit file to use current plan)
+  /millhouse issues [file]   Create GitHub issues (omit file to use latest plan)
   /millhouse status          Show run status
 
 CLI commands (run from terminal):
