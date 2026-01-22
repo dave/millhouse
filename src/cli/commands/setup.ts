@@ -68,7 +68,7 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
       console.log(chalk.yellow(`\nNo new commands to install ${location}`));
     }
 
-    console.log(chalk.gray('\nUsage: In Claude Code, type /plan-to-issues'));
+    console.log(chalk.gray('\nUsage: In Claude Code, type /millhouse'));
   } catch (error) {
     console.error(chalk.red(`Error: ${error instanceof Error ? error.message : error}`));
     process.exit(1);
