@@ -88,13 +88,13 @@ Each work item runs in complete isolation:
 
 ### GitHub Mode vs Plan Mode
 
-| | GitHub Mode                                | Plan Mode                        |
-|---|--------------------------------------------|----------------------------------|
-| Input | GitHub issues                              | Any text/markdown file           |
-| Setup | `/millhouse plan` then `/millhouse issues` | `/millhouse plan` (optional)     |
+| | GitHub Mode                                | Plan Mode                       |
+|---|--------------------------------------------|---------------------------------|
+| Input | GitHub issues                              | Any text/markdown file          |
+| Setup | `/millhouse plan` then `/millhouse issues` | `/millhouse plan`               |
 | Run | `millhouse run [--issue N]`                | `millhouse run --plan [file.md]` |
-| Output | Pull request                               | Changes on local branch          |
-| Labels | Auto-managed                               | N/A                              |
+| Output | Pull request                               | Changes on local branch         |
+| Labels | Auto-managed                               | N/A                             |
 
 ## CLI Reference
 
