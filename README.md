@@ -86,7 +86,7 @@ npm link
 
 - Node.js 20+
 - GitHub CLI (`gh`) authenticated
-- `ANTHROPIC_API_KEY` environment variable set
+- Claude Code installed and authenticated
 
 ## Usage
 
