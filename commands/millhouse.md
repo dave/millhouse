@@ -8,7 +8,6 @@ Parse $ARGUMENTS to determine the subcommand:
 
 - `/millhouse issues [plan-file]` - Create GitHub issues from a plan
 - `/millhouse local [plan-file]` - Create local work items file from a plan
-- `/millhouse run` - Execute work items in parallel
 - `/millhouse status` - Show run status
 
 ---
@@ -165,45 +164,6 @@ Tell the user to run:
 ```bash
 millhouse run --file millhouse-work.json
 ```
-
----
-
-## /millhouse run
-
-Execute work items in parallel using the millhouse CLI.
-
-**Important:** If the current Claude Code session is running with `--dangerously-skip-permissions`, add that flag to the millhouse command so spawned instances inherit the same permission level.
-
-### GitHub Mode (default)
-
-```bash
-# Run all open issues
-millhouse run
-
-# Run issue #5 and all its dependencies
-millhouse run --issue 5
-
-# Run with skipped permissions (for unattended execution)
-millhouse run --dangerously-skip-permissions
-
-# Dry run to see the execution plan
-millhouse run --dry-run
-
-# Run specific issues only
-millhouse run --issues 1,2,3
-```
-
-### Local Mode
-
-```bash
-# Run from a local work items file
-millhouse run --file millhouse-work.json
-
-# With skipped permissions
-millhouse run --file millhouse-work.json --dangerously-skip-permissions
-```
-
-Execute the command and wait for completion. Report the results including any PR URLs created (GitHub mode only).
 
 ---
 

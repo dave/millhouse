@@ -140,8 +140,6 @@ npm link
 1. Plan with Claude Code, then use `/millhouse local` to create a work items file
 2. Run `millhouse run --file <path>` from terminal
 
-Running from terminal is recommended because Claude Code's Bash tool has a 10-minute timeout, which isn't enough for multi-item runs.
-
 ### Setup Slash Command
 
 Install the `/millhouse` slash command for Claude Code:
@@ -166,11 +164,9 @@ Use `/millhouse` within Claude Code to convert a plan into work items:
 /millhouse local plan.md       # Create local JSON file from a plan
 ```
 
-This is interactive and works well within Claude Code's timeout limits.
-
 ### Running (Terminal)
 
-Run millhouse directly from your terminal - especially for overnight or long-running jobs:
+Run `millhouse run` from your terminal:
 
 **GitHub Mode:**
 ```bash
