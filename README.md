@@ -91,9 +91,9 @@ npm link
 
 ## Usage
 
-### Setup Slash Commands
+### Setup Slash Command
 
-Install Claude Code slash commands for working with Millhouse:
+Install the `/millhouse` slash command for Claude Code:
 
 ```bash
 # Install to current project
@@ -103,9 +103,23 @@ millhouse setup
 millhouse setup --global
 ```
 
-This installs the `/plan-to-issues` command which converts a plan into properly formatted GitHub issues.
+### Using from Claude Code
 
-### Start a Run
+Once installed, you can use millhouse directly from Claude Code:
+
+```
+/millhouse issues [plan-file]   # Create GitHub issues from a plan
+/millhouse run --issue 5        # Execute issue #5 and dependencies
+/millhouse status               # Show run status
+```
+
+When running with `--dangerously-skip-permissions`, add the flag to millhouse so spawned Claude instances inherit the same permission level:
+
+```
+/millhouse run --issue 5 --dangerously-skip-permissions
+```
+
+### Start a Run (CLI)
 
 ```bash
 # From a root issue (recursively discovers linked issues)
