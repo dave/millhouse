@@ -17,8 +17,8 @@ In Claude Code:
 ```
 ... then exit Claude Code and run at the command line:
 ```bash
-millhouse run               # Execute plan.md in current directory
-millhouse run my-plan.md    # Execute a specific plan file
+millhouse run               # Execute the most recent plan
+millhouse run plan.md       # Execute a specific plan file
 ```
 
 ### GitHub Issues Mode
@@ -104,8 +104,8 @@ Each work item runs in complete isolation:
 
 ```bash
 # Plan mode (default)
-millhouse run                    # Run plan.md in current directory
-millhouse run my-plan.md         # Run a specific plan file
+millhouse run                    # Run most recent plan from ~/.claude/plans/
+millhouse run plan.md            # Run a specific plan file
 
 # GitHub issues mode (always discovers linked issues)
 millhouse run issues             # Run all open issues
