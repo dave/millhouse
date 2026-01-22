@@ -153,9 +153,9 @@ export class ClaudeRunner {
         };
       }
 
-      // Get commits after running Claude
-      const commitsAfter = this.getCommitHashes(worktreePath);
-      const newCommits = commitsAfter.filter(c => !commitsBefore.includes(c));
+      // Commit any uncommitted changes Claude made
+      // (Claude may not have committed due to permission restrictions)
+      const newCommits = await this.commitChanges(worktreePath, issue.number, commitsBefore);
 
       return {
         success: true,
@@ -183,6 +183,43 @@ export class ClaudeRunner {
       return output.trim().split('\n').filter(Boolean);
     } catch {
       return [];
+    }
+  }
+
+  /**
+   * Commit any uncommitted changes in the worktree.
+   * Returns the new commit hashes.
+   */
+  private async commitChanges(
+    worktreePath: string,
+    issueNumber: number,
+    commitsBefore: string[]
+  ): Promise<string[]> {
+    try {
+      // Check if there are uncommitted changes
+      const status = execSync('git status --porcelain', {
+        cwd: worktreePath,
+        encoding: 'utf-8',
+      }).trim();
+
+      if (status) {
+        // There are uncommitted changes - commit them
+        console.log(`   [#${issueNumber}] 📦 Committing changes...`);
+
+        execSync('git add -A', { cwd: worktreePath });
+        execSync(
+          `git commit -m "feat: implement issue #${issueNumber}\n\nFixes #${issueNumber}"`,
+          { cwd: worktreePath }
+        );
+      }
+
+      // Get commits after
+      const commitsAfter = this.getCommitHashes(worktreePath);
+      return commitsAfter.filter(c => !commitsBefore.includes(c));
+    } catch (error) {
+      // If commit fails, still return any commits Claude may have made
+      const commitsAfter = this.getCommitHashes(worktreePath);
+      return commitsAfter.filter(c => !commitsBefore.includes(c));
     }
   }
 }
