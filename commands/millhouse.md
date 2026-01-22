@@ -8,7 +8,6 @@ Parse $ARGUMENTS to determine the subcommand:
 
 - `/millhouse plan [plan-file]` - Refine a plan for millhouse execution
 - `/millhouse issues [plan-file]` - Create GitHub issues from a plan
-- `/millhouse status` - Show run status
 
 ---
 
@@ -222,9 +221,3 @@ millhouse run --issue <this-issue-number>
 ```
 
 The index issue should **not** include detailed dependency information—Millhouse will discover dependencies from the individual issues.
-
----
-
-## /millhouse status
-
-Run `millhouse status` to show the status of current and past runs.

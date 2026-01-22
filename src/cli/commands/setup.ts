@@ -72,11 +72,11 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
 ${chalk.bold('Slash commands (in Claude Code):')}
   /millhouse plan [file]     Refine a plan for parallel execution
   /millhouse issues [file]   Create GitHub issues from a plan
-  /millhouse status          Show run status
 
 ${chalk.bold('Then run from terminal:')}
   millhouse run --plan       Execute most recent plan
   millhouse run --issue N    Execute GitHub issues
+  millhouse status           Show run status
 `);
   } catch (error) {
     console.error(chalk.red(`Error: ${error instanceof Error ? error.message : error}`));
