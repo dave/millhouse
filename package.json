@@ -1,19 +1,32 @@
 {
   "name": "millhouse",
   "version": "0.1.0",
-  "description": "CLI tool that orchestrates multiple parallel Claude Code instances to work on GitHub issues or local work items",
+  "description": "Orchestrate parallel Claude Code instances to implement GitHub issues or plan files",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
     "millhouse": "./dist/index.js"
   },
+  "files": [
+    "dist",
+    "commands"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
     "test": "vitest",
     "lint": "eslint src/",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dave/millhouse.git"
+  },
+  "homepage": "https://github.com/dave/millhouse#readme",
+  "bugs": {
+    "url": "https://github.com/dave/millhouse/issues"
   },
   "dependencies": {
     "@anthropic-ai/claude-code": "^1.0.0",

@@ -167,16 +167,25 @@ Run `npm run build` - should compile without errors.
 ## Installation
 
 ```bash
+npm install -g millhouse
+```
+
+Then install the `/millhouse` slash command for Claude Code:
+
+```bash
+millhouse setup --global
+```
+
+### Development Install
+
+If you want to contribute or modify millhouse:
+
+```bash
+git clone https://github.com/dave/millhouse.git
+cd millhouse
 npm install
 npm run build
 npm link
-```
-
-Install the `/millhouse` slash command for Claude Code:
-
-```bash
-millhouse setup           # Install to current project
-millhouse setup --global  # Install globally
 ```
 
 
