@@ -2,6 +2,14 @@
 
 Convert a plan into GitHub issues formatted for Millhouse.
 
+## Critical Context
+
+These issues will be implemented by Claude Code instances running **unattended in separate context windows**. Each issue is a fresh start with no memory of previous conversations. This means:
+
+- Every issue must be completely self-contained
+- All relevant context, requirements, and constraints must be explicitly stated
+- Nothing can be assumed or left implicit
+
 ## Instructions
 
 1. Read the plan from $ARGUMENTS (file path) or ask the user to describe it
@@ -10,22 +18,44 @@ Convert a plan into GitHub issues formatted for Millhouse.
 4. Create issues in order using `gh issue create`, starting with issues that have no dependencies
 5. Use the actual issue numbers returned by GitHub for dependency references
 
-## Issue Format
+## Issue Content Requirements
 
-Each issue should have:
-- Clear, actionable title
-- Description with specific file paths and implementation details
-- `**Depends on #N**` line if it depends on another issue
+Each issue MUST include:
 
-## Example
+### Implementation Details
+- Specific file paths to create or modify
+- Function signatures, types, or interfaces expected
+- Any specific libraries or patterns to use
 
-```bash
-gh issue create --title "Add math utilities" --body "Create \`src/utils/math.ts\` with add() and subtract() functions."
-```
+### Testing & Verification
+- How to verify the implementation works
+- Specific test commands to run (e.g., `npm test`, `npm run build`)
+- Expected output or behavior
 
-Then for dependent issues:
-```bash
-gh issue create --title "Create calculator" --body "Create \`src/calculator.ts\` that uses the math utilities.
+### Acceptance Criteria
+- Clear, checkable criteria for when the issue is "done"
+- Edge cases to handle
+- Error conditions to consider
 
-**Depends on #1**"
+### Dependencies
+- `**Depends on #N**` if it depends on another issue
+- What specifically it needs from that dependency (files, exports, etc.)
+
+## Example Issue Body
+
+```markdown
+Create `src/utils/math.ts` with basic arithmetic functions.
+
+## Implementation
+- Export functions: `add(a: number, b: number): number` and `multiply(a: number, b: number): number`
+- Use ES module syntax (export, not module.exports)
+- No external dependencies
+
+## Testing
+Run `npx tsc --noEmit` to verify no type errors.
+
+## Acceptance Criteria
+- [ ] File exists at `src/utils/math.ts`
+- [ ] Both functions are exported
+- [ ] TypeScript compiles without errors
 ```
