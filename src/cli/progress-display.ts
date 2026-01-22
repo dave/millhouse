@@ -165,6 +165,25 @@ export class ProgressDisplay {
   }
 
   /**
+   * Switch to detailed mode when an error occurs, showing full error details.
+   */
+  private switchToDetailedOnError(issueNumber: number, error: string): void {
+    this.clearLines();
+    console.log(chalk.red(`\n❌ Issue #${issueNumber} failed - switching to detailed view\n`));
+
+    // Replay log history
+    for (const entry of this.logHistory) {
+      console.log(`   [#${entry.issueNumber}] ${entry.message}`);
+    }
+
+    // Show full error
+    console.log(chalk.red(`\n   Full error for #${issueNumber}:`));
+    console.log(chalk.red(`   ${error}\n`));
+
+    this.compactMode = false;
+  }
+
+  /**
    * Handle a progress event.
    */
   handleEvent(event: ProgressEvent): void {
@@ -192,6 +211,11 @@ export class ProgressDisplay {
         issue.state = 'failed';
         issue.latestMessage = `Failed: ${this.truncateMessage(event.error)}`;
         this.logHistory.push({ issueNumber: event.issueNumber, message: `✗ Failed: ${event.error}` });
+        // Auto-switch to detailed mode on failure to show full error
+        if (this.compactMode && this.isRunning) {
+          this.switchToDetailedOnError(event.issueNumber, event.error);
+          return; // Already rendered
+        }
         break;
 
       case 'issue-blocked':
