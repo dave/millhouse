@@ -10,10 +10,19 @@ Parse $ARGUMENTS to determine the subcommand:
 - `/millhouse issues [plan-file]` - Create GitHub issues from a plan
 - `/millhouse status` - Show run status
 
-For plan-based execution without GitHub, save your plan to a file and run directly from terminal:
+If no subcommand is given, explain the workflow:
+
+**These slash commands help you prepare work for millhouse.** To actually execute the work, you need to run millhouse from your terminal (not from within Claude Code):
+
 ```bash
-millhouse run --plan plan.md
+# Plan mode - run from terminal after using /millhouse plan
+millhouse run --plan
+
+# GitHub mode - run from terminal after using /millhouse issues
+millhouse run --issue 5
 ```
+
+Ask the user which subcommand they'd like to use, or if they'd like help creating a plan.
 
 ---
 
