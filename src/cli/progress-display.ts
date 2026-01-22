@@ -26,6 +26,7 @@ export class ProgressDisplay {
   private lastRenderLines = 0;
   private keyHandler: ((key: Buffer) => void) | null = null;
   private isRunning = false;
+  private logHistory: Array<{ issueNumber: number; message: string }> = [];
 
   constructor() {}
 
@@ -143,9 +144,14 @@ export class ProgressDisplay {
    */
   private toggleView(): void {
     if (this.compactMode) {
-      // Switching to detailed - clear compact view
+      // Switching to detailed - clear compact view and show history
       this.clearLines();
       console.log(chalk.gray('Switched to detailed view. Press [v] to switch back.\n'));
+
+      // Replay log history
+      for (const entry of this.logHistory) {
+        console.log(`   [#${entry.issueNumber}] ${entry.message}`);
+      }
     } else {
       // Switching to compact - start fresh
       console.log(chalk.gray('\nSwitched to compact view. Press [v] to switch back.\n'));
@@ -169,6 +175,7 @@ export class ProgressDisplay {
       case 'issue-started':
         issue.state = 'running';
         issue.latestMessage = 'Starting...';
+        this.logHistory.push({ issueNumber: event.issueNumber, message: '▶ Started' });
         break;
 
       case 'issue-message':
@@ -178,11 +185,13 @@ export class ProgressDisplay {
       case 'issue-completed':
         issue.state = 'completed';
         issue.latestMessage = 'Finished!';
+        this.logHistory.push({ issueNumber: event.issueNumber, message: '✓ Completed' });
         break;
 
       case 'issue-failed':
         issue.state = 'failed';
         issue.latestMessage = `Failed: ${this.truncateMessage(event.error)}`;
+        this.logHistory.push({ issueNumber: event.issueNumber, message: `✗ Failed: ${event.error}` });
         break;
 
       case 'issue-blocked':
@@ -196,6 +205,7 @@ export class ProgressDisplay {
           issue.state = 'queued';
           issue.blockedBy = [];
           issue.latestMessage = 'Ready';
+          this.logHistory.push({ issueNumber: event.issueNumber, message: '⏳ Unblocked' });
         }
         break;
     }
@@ -211,6 +221,9 @@ export class ProgressDisplay {
    * Log a message in detailed mode (no-op in compact mode).
    */
   logDetailed(issueNumber: number, message: string): void {
+    // Always store in history
+    this.logHistory.push({ issueNumber, message });
+
     if (!this.compactMode && this.isRunning) {
       console.log(`   [#${issueNumber}] ${message}`);
     }
