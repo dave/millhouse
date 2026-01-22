@@ -32,7 +32,7 @@ In Claude Code:
 ```bash
 millhouse run issues        # Run all open GitHub issues
 millhouse run issues 5      # Run issue #5 and linked issues
-millhouse run issues 1,2,3  # Run specific issues
+millhouse run issues 1,2,3  # Run these issues and any linked issues
 ```
 
 ## Slash Commands
@@ -107,10 +107,10 @@ Each work item runs in complete isolation:
 millhouse run                    # Run most recent plan from ~/.claude/plans/
 millhouse run plan.md            # Run a specific plan file
 
-# GitHub issues mode
+# GitHub issues mode (always discovers linked issues)
 millhouse run issues             # Run all open issues
-millhouse run issues 5           # Run issue #5 and dependencies
-millhouse run issues 1,2,3       # Run specific issues only
+millhouse run issues 5           # Run issue #5 and linked issues
+millhouse run issues 1,2,3       # Run these issues and linked issues
 
 # Options (work with both modes)
 millhouse run --dry-run          # Preview without executing

@@ -253,11 +253,9 @@ export async function runIssuesCommand(numbers: string | undefined, options: Run
 
     // Parse issue numbers or fetch all open issues
     let issueNumbers: number[] = [];
-    let recursive = false;
 
     if (numbers) {
       issueNumbers = numbers.split(',').map(s => parseInt(s.trim(), 10));
-      recursive = issueNumbers.length === 1; // Single issue = recursive discovery
     }
 
     if (issueNumbers.length === 0) {
@@ -312,9 +310,9 @@ export async function runIssuesCommand(numbers: string | undefined, options: Run
       progressDisplay,
     });
 
-    // Discover issues
+    // Discover issues (always recursive to find linked issues)
     console.log(chalk.blue('\n📋 Discovering issues...'));
-    const issues = await orchestrator.discoverIssues(issueNumbers, recursive);
+    const issues = await orchestrator.discoverIssues(issueNumbers, true);
     console.log(chalk.green(`   ✓ Found ${issues.length} issue(s)`));
 
     // Analyze dependencies
