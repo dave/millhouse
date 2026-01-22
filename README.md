@@ -1,6 +1,6 @@
 # Millhouse
 
-Millhouse orchestrates multiple parallel Claude Code instances to automatically implement GitHub issues. Point it at a set of issues and it will figure out the dependencies, execute them in the right order, and create a PR with all the changes.
+Millhouse orchestrates parallel Claude Code instances to automatically implement GitHub issues. Point it at an issue and it will discover related issues, analyze dependencies, and execute them in parallel where possible - respecting dependency order. When complete, it creates a single PR with all changes.
 
 ## How It Works
 
