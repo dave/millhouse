@@ -11,19 +11,23 @@ In both modes, Millhouse executes work items in parallel where possible, respect
 
 ### Plan Flow (No GitHub Required)
 
+In Claude Code:
 ```
 /millhouse plan             # Refine your plan for millhouse
 ```
+... then exit Claude Code and run at the command line:
 ```bash
 millhouse run --plan        # Execute the plan
 ```
 
 ### GitHub Flow
 
+In Claude Code:
 ```
 /millhouse plan             # Refine your plan for millhouse
 /millhouse issues           # Create GitHub issues from your plan
 ```
+... then exit Claude Code and run at the command line:
 ```bash
 millhouse run               # Run millhouse with all open issue
 millhouse run --issue 5     # Run millhouse with issue 5 and all linked issues
