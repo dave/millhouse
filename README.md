@@ -94,7 +94,7 @@ Each work item runs in complete isolation:
 |---|--------------------------------------------|---------------------------------|
 | Input | GitHub issues                              | Any text/markdown file        |
 | Setup | `/millhouse plan` then `/millhouse issues` | `/millhouse plan`             |
-| Run | `millhouse run issues [N]`                 | `millhouse run [file.md]`     |
+| Run | `millhouse run issues [id]`                | `millhouse run [file.md]`     |
 | Output | Pull request                               | Changes on local branch       |
 | Labels | Auto-managed                               | N/A                           |
 
