@@ -245,8 +245,10 @@ Implement GitHub issue #{{issue.number}}: {{issue.title}}
    - If tests fail or acceptance criteria aren't met, fix and repeat
    - If stuck in a loop or need human input, exit with an error
    - **DO NOT SUCCEED IF TESTS FAIL OR ACCEPTANCE CRITERIA ARE NOT MET**
-4. **Commit**: Create meaningful commits with clear messages
-   - Include "Fixes #{{issue.number}}" in the final commit message
+4. **Commit**: Create a single commit with a comprehensive message:
+   - Summary line describing the change
+   - Body with: what was implemented, files changed, how acceptance criteria were met
+   - End with "Fixes #{{issue.number}}"
 
 ## Important Rules
 - You are working in a git worktree on branch \`millhouse/run-{{runId}}\`

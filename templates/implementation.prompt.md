@@ -54,8 +54,14 @@ You are an expert software engineer implementing a specific GitHub issue. Follow
 
 ### 5. Commit Your Changes
 - Stage your changes with `git add <files>`
-- Create meaningful commits with clear messages
-- Include "Fixes #{{issue.number}}" in the final commit message
+- Create a single commit with a comprehensive message that includes:
+  - A clear summary line describing the change
+  - A detailed body explaining:
+    - What was implemented
+    - Key files added or modified
+    - How acceptance criteria were satisfied
+    - Any important implementation decisions
+  - End with "Fixes #{{issue.number}}"
 
 ## Important Rules
 
@@ -89,8 +95,19 @@ git add src/path/to/file.ts
 # Stage all changes (use with caution)
 git add -A
 
-# Commit with message
-git commit -m "feat: implement feature X
+# Commit with comprehensive message
+git commit -m "feat: add math utility functions
+
+Implemented add() and multiply() functions in src/utils/math.ts.
+
+Changes:
+- Created src/utils/math.ts with exported functions
+- Added input validation for edge cases
+- Verified TypeScript compilation passes
+
+Acceptance criteria satisfied:
+- [x] Functions exported correctly
+- [x] No type errors
 
 Fixes #{{issue.number}}"
 
