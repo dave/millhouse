@@ -28,7 +28,11 @@ export class ProgressDisplay {
   private isRunning = false;
   private logHistory: Array<{ issueNumber: number; message: string }> = [];
 
-  constructor() {}
+  constructor(options?: { displayMode?: 'compact' | 'detailed' }) {
+    if (options?.displayMode === 'detailed') {
+      this.compactMode = false;
+    }
+  }
 
   /**
    * Initialize with the list of issues.

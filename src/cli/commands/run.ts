@@ -29,6 +29,7 @@ interface RunOptions {
   issues?: string;
   plan?: string | true;  // true when --plan given without value
   concurrency?: string;
+  display?: 'compact' | 'detailed';
   dryRun?: boolean;
   dangerouslySkipPermissions?: boolean;
 }
@@ -179,7 +180,7 @@ async function runPlanMode(options: RunOptions): Promise<void> {
     const store = new JsonStore();
     const graphBuilder = new GraphBuilder();
     const worktreeManager = new WorktreeManager();
-    const progressDisplay = new ProgressDisplay();
+    const progressDisplay = new ProgressDisplay({ displayMode: options.display });
 
     const claudeRunner = new ClaudeRunner(config, {
       dangerouslySkipPermissions: options.dangerouslySkipPermissions,
@@ -282,7 +283,7 @@ async function runGitHubMode(options: RunOptions): Promise<void> {
     const worktreeManager = new WorktreeManager();
 
     // Create progress display
-    const progressDisplay = new ProgressDisplay();
+    const progressDisplay = new ProgressDisplay({ displayMode: options.display });
 
     const claudeRunner = new ClaudeRunner(config, {
       dangerouslySkipPermissions: options.dangerouslySkipPermissions,

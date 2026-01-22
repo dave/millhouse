@@ -21,6 +21,7 @@ program
   .option('--issues <numbers>', 'Comma-separated list of specific issue numbers')
   .option('-p, --plan [path]', 'Path to a plan file (omit to use most recent)')
   .option('-n, --concurrency <number>', 'Number of parallel workers', '8')
+  .option('-d, --display <mode>', 'Display mode: compact or detailed', 'compact')
   .option('--dry-run', 'Analyze and plan without executing')
   .option('--dangerously-skip-permissions', 'Skip permission prompts in spawned Claude instances')
   .action(runCommand);
