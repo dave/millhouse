@@ -9,7 +9,7 @@ In both modes, Millhouse executes work items in parallel where possible, respect
 
 ## Quick Start
 
-### Plan Flow (No GitHub Required)
+### Plan Mode
 
 In Claude Code:
 ```
@@ -20,7 +20,7 @@ In Claude Code:
 millhouse run --plan        # Execute the plan
 ```
 
-### GitHub Flow
+### GitHub Issues Mode
 
 In Claude Code:
 ```
@@ -29,7 +29,7 @@ In Claude Code:
 ```
 ... then exit Claude Code and run at the command line:
 ```bash
-millhouse run               # Run millhouse with all open issue
+millhouse run               # Run millhouse with all open issues
 millhouse run --issue 5     # Run millhouse with issue 5 and all linked issues
 ```
 
