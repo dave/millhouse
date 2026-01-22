@@ -70,8 +70,8 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
 
     console.log(`
 ${chalk.bold('Slash commands (in Claude Code):')}
-  /millhouse plan [file]     Refine a plan for parallel execution
-  /millhouse issues [file]   Create GitHub issues from a plan
+  /millhouse plan [file]     Refine a plan (omit file to use current plan)
+  /millhouse issues [file]   Create GitHub issues (omit file to use latest plan)
 
 ${chalk.bold('Then run from terminal:')}
   millhouse run --plan       Execute most recent plan
