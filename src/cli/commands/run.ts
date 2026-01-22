@@ -83,8 +83,50 @@ async function checkLeftoverState(): Promise<boolean> {
   return true; // No leftovers, continue
 }
 
+async function findProjectPlans(): Promise<string[]> {
+  // Convert cwd to Claude project path format: /Users/dave/src/foo -> -Users-dave-src-foo
+  const cwd = process.cwd();
+  const projectDirName = cwd.replace(/\//g, '-');
+  const projectDir = path.join(os.homedir(), '.claude', 'projects', projectDirName);
+
+  const planRefs = new Set<string>();
+
+  try {
+    const files = await fs.readdir(projectDir);
+    const jsonlFiles = files.filter(f => f.endsWith('.jsonl'));
+
+    // Search transcript files for plan references
+    for (const file of jsonlFiles) {
+      try {
+        const content = await fs.readFile(path.join(projectDir, file), 'utf-8');
+        // Match plan file paths like .claude/plans/name.md or ~/.claude/plans/name.md
+        const matches = content.match(/\.claude\/plans\/[a-z-]+\.md/g);
+        if (matches) {
+          for (const match of matches) {
+            // Extract just the filename
+            const filename = match.split('/').pop();
+            if (filename && !filename.includes('-agent-')) {
+              // Skip agent subplans
+              planRefs.add(filename);
+            }
+          }
+        }
+      } catch {
+        // Skip files we can't read
+      }
+    }
+  } catch {
+    // Project directory doesn't exist
+  }
+
+  return Array.from(planRefs);
+}
+
 async function findMostRecentPlan(): Promise<string | null> {
   const plansDir = path.join(os.homedir(), '.claude', 'plans');
+
+  // First, get plans associated with this project
+  const projectPlans = await findProjectPlans();
 
   try {
     const files = await fs.readdir(plansDir);
@@ -94,8 +136,17 @@ async function findMostRecentPlan(): Promise<string | null> {
       return null;
     }
 
+    // Filter to only project-specific plans if we found any
+    const relevantFiles = projectPlans.length > 0
+      ? mdFiles.filter(f => projectPlans.includes(f))
+      : mdFiles;
+
+    if (relevantFiles.length === 0) {
+      return null;
+    }
+
     const fileStats = await Promise.all(
-      mdFiles.map(async (f) => {
+      relevantFiles.map(async (f) => {
         const fullPath = path.join(plansDir, f);
         const stat = await fs.stat(fullPath);
         return { path: fullPath, mtime: stat.mtime };
