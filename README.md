@@ -29,12 +29,27 @@ Create a Calculator class that uses the math utilities.
 
 Issues are organized into a directed acyclic graph (DAG) based on their dependencies:
 
-```
-#1 (greeting) ──┬──→ #7 (barrel export) ──┐
-                │                          │
-#2 (math) ──────┼──→ #4 (calculator) ──────┼──→ #8 (main entry)
-                │                          │
-#3 (string) ────┴──→ #5 (formatter) ──→ #6 (welcome)
+```mermaid
+flowchart TD
+    subgraph "No Dependencies"
+        1["#1 greeting"]
+        2["#2 math"]
+        3["#3 string"]
+    end
+
+    2 --> 4["#4 calculator"]
+    3 --> 5["#5 formatter"]
+
+    1 --> 6["#6 welcome"]
+    5 --> 6
+
+    1 --> 7["#7 barrel"]
+    2 --> 7
+    3 --> 7
+
+    4 --> 8["#8 main"]
+    6 --> 8
+    7 --> 8
 ```
 
 The scheduler:
