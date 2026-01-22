@@ -114,10 +114,12 @@ millhouse run --issues 1,2,3     # Run specific issues only
 
 # Plan mode
 millhouse run --plan plan.md     # Run from a plan file
+millhouse run --plan             # Run most recent plan from ~/.claude/plans/
 
 # Options
 millhouse run --dry-run          # Preview without executing
 millhouse run -n 4               # Limit to 4 parallel workers (default: 8)
+millhouse run -d detailed        # Start in detailed view (default: compact)
 millhouse run --dangerously-skip-permissions  # Unattended execution
 ```
 
@@ -226,7 +228,7 @@ millhouse clean
 ```
 
 **To see what Claude is doing:**
-The CLI shows real-time activity for each work item. Press `v` to toggle between compact and detailed view.
+The CLI shows real-time activity for each work item. Use `-d detailed` to start in detailed view, or press `v` to toggle during execution.
 
 ## License
 
