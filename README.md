@@ -28,32 +28,7 @@ Create a Calculator class that uses the math utilities.
 
 ### 3. Dependency Graph & Scheduling
 
-Issues are organized into a directed acyclic graph (DAG) based on their dependencies:
-
-```mermaid
-flowchart TD
-    subgraph "No Dependencies"
-        1["#1 greeting"]
-        2["#2 math"]
-        3["#3 string"]
-    end
-
-    2 --> 4["#4 calculator"]
-    3 --> 5["#5 formatter"]
-
-    1 --> 6["#6 welcome"]
-    5 --> 6
-
-    1 --> 7["#7 barrel"]
-    2 --> 7
-    3 --> 7
-
-    4 --> 8["#8 main"]
-    6 --> 8
-    7 --> 8
-```
-
-The scheduler:
+Issues are organized into a directed acyclic graph (DAG) based on their dependencies. The scheduler:
 - Starts all issues with no dependencies in parallel (up to concurrency limit)
 - As each issue completes, unblocks dependent issues
 - Dynamically schedules newly-unblocked issues
