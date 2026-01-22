@@ -1,15 +1,63 @@
 # Millhouse
 
-CLI tool that orchestrates multiple parallel Claude Code instances to automatically work on GitHub issues.
+Millhouse orchestrates multiple parallel Claude Code instances to automatically implement GitHub issues. Point it at a set of issues and it will figure out the dependencies, execute them in the right order, and create a PR with all the changes.
 
-## Features
+## How It Works
 
-- **Automatic Issue Discovery**: Recursively discovers linked issues from a root issue
-- **Dependency Analysis**: Uses Claude to analyze issues for dependencies
-- **Parallel Execution**: Runs multiple Claude instances in parallel with dependency-aware scheduling
-- **Git Worktrees**: Isolates each task in its own git worktree
-- **Status Tracking**: GitHub labels show real-time status of each issue
-- **Graceful Resume**: Interrupted runs can be resumed
+### 1. Issue Discovery
+
+When you run `millhouse run --issue 42`, it:
+- Fetches issue #42 from GitHub
+- Scans the issue body for references to other issues (`#1`, `#2`, etc.)
+- Recursively fetches and scans those issues too
+- Builds a complete list of all related issues
+
+### 2. Dependency Analysis
+
+Millhouse sends all discovered issues to Claude in a single API call to analyze dependencies. It looks for:
+- Explicit markers: "Depends on #1", "Blocked by #2", "After #3", "Requires #4"
+- Logical dependencies: If issue B imports from a file that issue A creates
+
+Example issue body:
+```markdown
+Create a Calculator class that uses the math utilities.
+
+**Depends on #2** (math utilities must exist first)
+```
+
+### 3. Dependency Graph & Scheduling
+
+Issues are organized into a directed acyclic graph (DAG) based on their dependencies:
+
+```
+#1 (greeting) ──┬──→ #7 (barrel export) ──┐
+                │                          │
+#2 (math) ──────┼──→ #4 (calculator) ──────┼──→ #8 (main entry)
+                │                          │
+#3 (string) ────┴──→ #5 (formatter) ──→ #6 (welcome)
+```
+
+The scheduler:
+- Starts all issues with no dependencies in parallel (up to concurrency limit)
+- As each issue completes, unblocks dependent issues
+- Dynamically schedules newly-unblocked issues
+
+### 4. Parallel Execution with Git Worktrees
+
+Each issue runs in complete isolation:
+- Creates a branch: `millhouse/run-{runId}/issue-{N}`
+- Creates a git worktree in `.millhouse/worktrees/issue-{N}`
+- Claude Code runs in that worktree with full autonomy
+- Changes are committed to the issue's branch
+
+This means multiple Claude instances can work simultaneously without conflicts.
+
+### 5. Merging & PR Creation
+
+As each issue completes:
+- Its branch is merged back into the main run branch
+- The worktree is cleaned up
+- Once all issues complete, a single PR is created with all changes
 
 ## Installation
 
@@ -30,47 +78,55 @@ npm link
 ### Start a Run
 
 ```bash
-# From a root issue (recursively includes linked issues)
+# From a root issue (recursively discovers linked issues)
 millhouse run --issue 42
 
-# Specific issues (no recursion)
+# Specific issues only (no recursive discovery)
 millhouse run --issues 42,43,44
 
-# With custom concurrency
+# Adjust parallelism (default: 3)
 millhouse run --issue 42 -n 5
 
-# Dry run (analyze only, no execution)
+# Dry run - analyze and plan without executing
 millhouse run --issue 42 --dry-run
 ```
 
 ### Check Status
 
 ```bash
-# Show all runs
-millhouse status
-
-# Show specific run
-millhouse status --run-id abc123
-
-# Output as JSON
-millhouse status --json
+millhouse status              # Show all runs
+millhouse status --run-id X   # Show specific run
+millhouse status --json       # Output as JSON
 ```
 
 ### Resume Interrupted Run
+
+If you interrupt a run (Ctrl+C), it saves state automatically:
 
 ```bash
 millhouse resume <run-id>
 ```
 
-## How It Works
+## Writing Issues for Millhouse
 
-1. **Discovery**: Finds all issues linked from the root issue
-2. **Analysis**: Uses Claude to analyze each issue for dependencies
-3. **Graph Building**: Creates a dependency DAG
-4. **Scheduling**: Dynamically schedules tasks as dependencies complete
-5. **Execution**: Each task runs in an isolated git worktree with Claude
-6. **Merging**: Completed tasks merge back to the run branch
-7. **PR Creation**: Creates a single PR with all changes
+For best results, write issues that are:
+
+**Specific and actionable:**
+```markdown
+Create `src/utils/math.ts` with functions:
+- `add(a: number, b: number): number`
+- `subtract(a: number, b: number): number`
+```
+
+**Explicit about dependencies:**
+```markdown
+**Depends on #2** - needs the math utilities to exist first
+```
+
+**Clear about file paths:**
+```markdown
+Create a file `src/calculator.ts` that imports from `src/utils/math.ts`
+```
 
 ## Configuration
 
@@ -81,8 +137,6 @@ Create `.millhouserc.json` in your project root:
   "execution": {
     "concurrency": 3,
     "baseBranch": "main",
-    "maxBudgetPerIssue": 5.0,
-    "maxTotalBudget": 100.0,
     "continueOnError": true
   },
   "pullRequests": {
@@ -93,27 +147,52 @@ Create `.millhouserc.json` in your project root:
 }
 ```
 
+| Option | Description | Default |
+|--------|-------------|---------|
+| `concurrency` | Max parallel Claude instances | 3 |
+| `baseBranch` | Branch to base work on | main |
+| `continueOnError` | Keep going if one issue fails | true |
+| `createAsDraft` | Create PR as draft | true |
+| `mergeStrategy` | PR merge strategy | squash |
+
 ## GitHub Labels
 
-Millhouse uses these labels to track status:
+Millhouse automatically manages labels to show progress:
 
 | Label | Meaning |
 |-------|---------|
-| `millhouse:queued` | Issue is in the execution queue |
-| `millhouse:in-progress` | Claude is actively working on this |
-| `millhouse:blocked` | Waiting for dependency to complete |
+| `millhouse:queued` | Waiting in queue |
+| `millhouse:in-progress` | Claude is actively working |
+| `millhouse:blocked` | Waiting for dependency |
 | `millhouse:failed` | Execution failed |
-| `millhouse:done` | Work complete |
+| `millhouse:done` | Completed successfully |
 
 ## State Storage
-
-Run state is stored in `.millhouse/` directory:
 
 ```
 .millhouse/
 ├── runs/
-│   └── {run-id}.json    # Run state
-└── worktrees.json       # Active worktree mapping
+│   └── {run-id}.json    # Full run state (resumable)
+├── worktrees/
+│   └── issue-{N}/       # Git worktrees (temporary)
+└── worktrees.json       # Active worktree tracking
+```
+
+## Troubleshooting
+
+**Worktree errors after interrupted run:**
+```bash
+rm -rf .millhouse
+git worktree prune
+git branch | grep millhouse | xargs git branch -D
+```
+
+**To see what Claude is doing:**
+The CLI shows real-time activity for each issue with prefixed output:
+```
+[#1] 📝 Write: greeting.ts
+[#2] 💻 npm test
+[#3] 📖 Reading: package.json
 ```
 
 ## License
