@@ -50,18 +50,24 @@ export class WorktreeManager {
 
   /**
    * Create an isolated worktree for an issue.
+   * Each issue gets its own branch to allow parallel worktrees.
    */
   async createWorktree(runId: string, issueNumber: number, runBranch: string): Promise<WorktreeInfo> {
     await fs.mkdir(this.worktreesDir, { recursive: true });
 
     const worktreePath = path.join(this.worktreesDir, `issue-${issueNumber}`);
+    // Each issue gets its own branch forked from the run branch
+    const issueBranch = `${runBranch}/issue-${issueNumber}`;
 
     // Remove existing worktree if any
     await this.removeWorktree(worktreePath).catch(() => {});
 
-    // Create worktree on the run branch
+    // Delete the issue branch if it exists (from a previous failed run)
+    await execAsync(`git branch -D ${issueBranch}`, { cwd: this.basePath }).catch(() => {});
+
+    // Create worktree with a new branch forked from run branch
     await execAsync(
-      `git worktree add "${worktreePath}" ${runBranch}`,
+      `git worktree add -b ${issueBranch} "${worktreePath}" ${runBranch}`,
       { cwd: this.basePath }
     );
 
@@ -69,7 +75,7 @@ export class WorktreeManager {
       issueNumber,
       runId,
       path: worktreePath,
-      branch: runBranch,
+      branch: issueBranch,
       createdAt: new Date().toISOString(),
     };
 
@@ -144,15 +150,20 @@ export class WorktreeManager {
   }
 
   /**
-   * Remove a worktree.
+   * Remove a worktree and its associated branch.
    */
-  async removeWorktree(worktreePath: string): Promise<void> {
+  async removeWorktree(worktreePath: string, issueBranch?: string): Promise<void> {
     try {
       await execAsync(`git worktree remove "${worktreePath}" --force`, { cwd: this.basePath });
     } catch {
       // Try to remove directory manually if git worktree fails
       await fs.rm(worktreePath, { recursive: true, force: true });
       await execAsync('git worktree prune', { cwd: this.basePath }).catch(() => {});
+    }
+
+    // Clean up the issue branch if provided
+    if (issueBranch) {
+      await execAsync(`git branch -D ${issueBranch}`, { cwd: this.basePath }).catch(() => {});
     }
   }
 

@@ -231,8 +231,8 @@ export class Orchestrator {
           }
         }
 
-        // Clean up worktree
-        await this.worktreeManager.removeWorktree(worktree.path);
+        // Clean up worktree and its branch
+        await this.worktreeManager.removeWorktree(worktree.path, worktree.branch);
         await this.store.removeWorktree(worktree.path);
 
         return result;
