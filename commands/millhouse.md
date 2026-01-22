@@ -7,8 +7,12 @@ Orchestrate parallel Claude Code instances to implement work items.
 Parse $ARGUMENTS to determine the subcommand:
 
 - `/millhouse issues [plan-file]` - Create GitHub issues from a plan
-- `/millhouse local [plan.md] [output.json]` - Create local work items file from a plan
 - `/millhouse status` - Show run status
+
+For plan-based execution without GitHub, save your plan to a file and run directly from terminal:
+```bash
+millhouse run --plan plan.md
+```
 
 ---
 
@@ -103,69 +107,6 @@ millhouse run --issue <this-issue-number>
 ```
 
 The index issue should **not** include detailed dependency information—Millhouse will discover dependencies from the individual issues.
-
----
-
-## /millhouse local
-
-Convert a plan into a local JSON file for Millhouse (no GitHub required).
-
-### Critical Context
-
-Same as `/millhouse issues` - work items will be implemented by Claude Code instances running **unattended in separate context windows**.
-
-### Instructions
-
-1. Parse arguments by extension:
-   - `.json` file = output filename (default: `millhouse-work.json`)
-   - Any other file = plan file to read from
-   - Examples: `/millhouse local` `/millhouse local plan.md` `/millhouse local output.json` `/millhouse local plan.md output.json`
-2. Read the plan from the plan file, or ask the user to describe it
-3. Break it into discrete, implementable items
-4. For each item, identify dependencies on other items
-5. Create the JSON file with all work items
-
-### JSON File Format
-
-Create the output file (default `millhouse-work.json`):
-
-```json
-{
-  "version": 1,
-  "name": "Feature name",
-  "description": "Brief description of the overall goal",
-  "createdAt": "2024-01-15T10:00:00Z",
-  "items": [
-    {
-      "id": 1,
-      "title": "Create math utilities",
-      "body": "Full description with implementation details, testing, and acceptance criteria..."
-    },
-    {
-      "id": 2,
-      "title": "Create calculator",
-      "body": "Full description...\n\n**Depends on #1**"
-    }
-  ]
-}
-```
-
-### Work Item Content Requirements
-
-Same as GitHub issues - the body should include:
-- Implementation details (file paths, function signatures)
-- Testing & verification instructions
-- Acceptance criteria
-- Dependencies using `**Depends on #N**` format in the body text
-
-Dependencies are analyzed at runtime from the body text, just like GitHub mode.
-
-### After Creating the File
-
-Tell the user to run (using the actual filename):
-```bash
-millhouse run --file <filename.json>
-```
 
 ---
 

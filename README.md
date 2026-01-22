@@ -3,24 +3,23 @@
 Millhouse orchestrates parallel Claude Code instances to automatically implement work items. It supports two modes:
 
 - **GitHub Mode:** Point it at GitHub issues and it discovers related issues, analyzes dependencies, and creates a PR with all changes
-- **Local Mode:** Define work items in a JSON file - no GitHub required
+- **Plan Mode:** Give it any plan file (markdown, text) and it breaks it into work items automatically - no GitHub required
 
 In both modes, Millhouse executes work items in parallel where possible, respecting dependency order.
 
 ## Quick Start
 
-Use the `/millhouse` slash command within Claude Code to plan and create work items:
-
+**GitHub Mode** - use the slash command to create issues, then run:
 ```
 /millhouse issues           # Create GitHub issues from your plan
-/millhouse local            # Create a local JSON file instead
+```
+```bash
+millhouse run --issue 5     # Run issue #5 and dependencies
 ```
 
-Then run from terminal:
-
+**Plan Mode** - just write a plan and run it directly:
 ```bash
-millhouse run                              # Run GitHub issues
-millhouse run --file millhouse-work.json   # Run local work items
+millhouse run --plan plan.md
 ```
 
 ## How It Works (GitHub Mode)
@@ -35,21 +34,14 @@ When you run `millhouse run --issue 42`, it:
 
 ### 2. Dependency Analysis
 
-Millhouse sends all discovered issues to Claude in a single API call to analyze dependencies. It understands:
+Millhouse sends all discovered issues to Claude to analyze dependencies. It understands:
 - Explicit markers: "Depends on #1", "Blocked by #2", "After #3", "Requires #4"
 - Logical dependencies: If issue B imports from a file that issue A creates
-- Semantic relationships: If issue A "creates math utilities" and issue B "uses the math functions", Claude infers the dependency automatically
-
-Example issue body:
-```markdown
-Create a Calculator class that uses the math utilities.
-
-**Depends on #2** (math utilities must exist first)
-```
+- Semantic relationships: Claude infers dependencies automatically
 
 ### 3. Dependency Graph & Scheduling
 
-Issues are organized into a directed acyclic graph (DAG) based on their dependencies. The scheduler:
+Issues are organized into a directed acyclic graph (DAG). The scheduler:
 - Starts all issues with no dependencies in parallel (up to concurrency limit)
 - As each issue completes, unblocks dependent issues
 - Dynamically schedules newly-unblocked issues
@@ -58,11 +50,9 @@ Issues are organized into a directed acyclic graph (DAG) based on their dependen
 
 Each issue runs in complete isolation:
 - Creates a branch: `millhouse/run-{runId}-issue-{N}`
-- Creates a git worktree in `.millhouse/worktrees/issue-{N}`
+- Creates a git worktree in `.millhouse/worktrees/run-{runId}-issue-{N}`
 - Claude Code runs in that worktree with full autonomy
 - Changes are committed to the issue's branch
-
-This means multiple Claude instances can work simultaneously without conflicts.
 
 ### 5. Merging & PR Creation
 
@@ -71,40 +61,31 @@ As each issue completes:
 - The worktree is cleaned up
 - Once all issues complete, a single PR is created with all changes
 
-## How It Works (Local Mode)
+## How It Works (Plan Mode)
 
-Local mode works the same way as GitHub mode, but without GitHub:
+Plan mode works the same way, but Claude parses your plan file directly:
 
-1. **Define work items** in a JSON file (manually or via `/millhouse local`)
-2. **Run millhouse** with `--file` flag
-3. **Parallel execution** proceeds exactly as in GitHub mode
-4. **Changes remain** on the local run branch (no PR created)
+1. **Write a plan** - any markdown or text describing what you want to build
+2. **Run millhouse** with `--plan` flag
+3. **Claude analyzes** the plan, breaking it into discrete work items with dependencies
+4. **Parallel execution** proceeds exactly as in GitHub mode
+5. **Changes remain** on the local run branch (no PR created)
 
-### Work Items File Format
+Example plan file:
+```markdown
+# Calculator Project
 
-```json
-{
-  "version": 1,
-  "name": "Feature name",
-  "items": [
-    {
-      "id": 1,
-      "title": "Create math utilities",
-      "body": "Create `src/utils/math.ts` with add and multiply functions..."
-    },
-    {
-      "id": 2,
-      "title": "Create calculator",
-      "body": "Create calculator class...\n\n**Depends on #1**"
-    }
-  ]
-}
+Build a simple calculator library in TypeScript.
+
+## Components
+
+1. Math utilities - basic add, subtract, multiply, divide functions
+2. Calculator class - uses math utilities, maintains state
+3. CLI interface - command-line calculator using the Calculator class
+4. Tests - unit tests for all components
 ```
 
-Each item needs:
-- `id`: Unique numeric identifier
-- `title`: Brief description
-- `body`: Full implementation details (include `**Depends on #N**` for dependencies)
+Millhouse will parse this into work items, determine that the CLI depends on Calculator which depends on Math utilities, and execute in the correct order.
 
 ## Installation
 
@@ -122,45 +103,17 @@ npm link
 
 ## Usage
 
-### Recommended Workflow
-
-**GitHub Mode:**
-1. Plan with Claude Code, then use `/millhouse issues` to create GitHub issues
-2. Run `millhouse run` from terminal
-
-**Local Mode:**
-1. Plan with Claude Code, then use `/millhouse local` to create a work items file
-2. Run `millhouse run --file <path>` from terminal
-
 ### Setup Slash Command
 
 Install the `/millhouse` slash command for Claude Code:
 
 ```bash
-# Install to current project
-millhouse setup
-
-# Install globally (available in all projects)
-millhouse setup --global
+millhouse setup           # Install to current project
+millhouse setup --global  # Install globally
 ```
 
-### Creating Work Items (Claude Code)
+### GitHub Mode
 
-Use `/millhouse` within Claude Code to convert a plan into work items:
-
-```
-/millhouse issues              # Create GitHub issues interactively
-/millhouse issues plan.md      # Create GitHub issues from a plan file
-
-/millhouse local               # Create local JSON file interactively
-/millhouse local plan.md       # Create local JSON file from a plan
-```
-
-### Running (Terminal)
-
-Run `millhouse run` from your terminal:
-
-**GitHub Mode:**
 ```bash
 # Run all open issues in the repository
 millhouse run
@@ -172,13 +125,17 @@ millhouse run --issue 5
 millhouse run --issues 1,2,3
 ```
 
-**Local Mode:**
+### Plan Mode
+
 ```bash
-# Run from a local work items file
-millhouse run --file millhouse-work.json
+# Run from a plan file
+millhouse run --plan plan.md
+millhouse run --plan TODO.txt
+millhouse run --plan features.md
 ```
 
-**Common Options:**
+### Common Options
+
 ```bash
 # With skipped permissions for unattended execution
 millhouse run --dangerously-skip-permissions
@@ -206,25 +163,26 @@ If you interrupt a run (Ctrl+C), it saves state automatically:
 millhouse resume <run-id>
 ```
 
-## Writing Work Items
+## Writing Good Plans
 
-For best results, write work items (issues or local items) that are:
+For best results, write plans that are:
 
-**Specific and actionable:**
+**Clear about what to build:**
 ```markdown
-Create `src/utils/math.ts` with functions:
-- `add(a: number, b: number): number`
-- `subtract(a: number, b: number): number`
+Create a math utilities module with:
+- add(a, b) - returns sum
+- multiply(a, b) - returns product
 ```
 
 **Explicit about dependencies:**
 ```markdown
-**Depends on #2** - needs the math utilities to exist first
+The Calculator class should use the math utilities module.
 ```
 
-**Clear about file paths:**
+**Specific about file structure:**
 ```markdown
-Create a file `src/calculator.ts` that imports from `src/utils/math.ts`
+Put math utilities in src/utils/math.ts
+Put the Calculator class in src/calculator.ts
 ```
 
 ## Configuration
@@ -240,8 +198,7 @@ Create `.millhouserc.json` in your project root:
   },
   "pullRequests": {
     "createAsDraft": true,
-    "mergeStrategy": "squash",
-    "branchPrefix": "millhouse/issue-"
+    "mergeStrategy": "squash"
   }
 }
 ```
@@ -273,7 +230,7 @@ In GitHub mode, Millhouse automatically manages labels to show progress:
 ├── runs/
 │   └── {run-id}.json    # Full run state (resumable)
 ├── worktrees/
-│   └── issue-{N}/       # Git worktrees (temporary)
+│   └── run-{runId}-issue-{N}/  # Git worktrees (temporary)
 └── worktrees.json       # Active worktree tracking
 ```
 
@@ -292,9 +249,9 @@ git branch | grep millhouse | xargs git branch -D
 ```
 
 **To see what Claude is doing:**
-The CLI shows real-time activity for each issue with prefixed output:
+The CLI shows real-time activity for each work item:
 ```
-[#1] 📝 Write: greeting.ts
+[#1] 📝 Write: math.ts
 [#2] 💻 npm test
 [#3] 📖 Reading: package.json
 ```

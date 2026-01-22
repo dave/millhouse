@@ -9,6 +9,7 @@ import { GitHubClient } from '../../github/client.js';
 import { IssueDiscoverer } from '../../github/issue-discoverer.js';
 import { LabelManager } from '../../github/label-manager.js';
 import { IssueAnalyzer } from '../../analysis/issue-analyzer.js';
+import { PlanParser } from '../../analysis/plan-parser.js';
 import { GraphBuilder } from '../../analysis/graph-builder.js';
 import { WorktreeManager } from '../../execution/worktree-manager.js';
 import { ClaudeRunner } from '../../execution/claude-runner.js';
@@ -20,12 +21,11 @@ import {
 } from '../cleanup.js';
 import { resumeCommand } from './resume.js';
 import { ProgressDisplay } from '../progress-display.js';
-import type { LocalWorkFile, GitHubIssue } from '../../types.js';
 
 interface RunOptions {
   issue?: string;
   issues?: string;
-  file?: string;
+  plan?: string;
   concurrency?: string;
   dryRun?: boolean;
   dangerouslySkipPermissions?: boolean;
@@ -82,51 +82,33 @@ export async function runCommand(options: RunOptions): Promise<void> {
     }
   }
 
-  // Determine mode: local file or GitHub
-  const isLocalMode = !!options.file;
+  // Determine mode: plan file or GitHub
+  const isPlanMode = !!options.plan;
 
-  if (isLocalMode) {
-    await runLocalMode(options);
+  if (isPlanMode) {
+    await runPlanMode(options);
   } else {
     await runGitHubMode(options);
   }
 }
 
-async function runLocalMode(options: RunOptions): Promise<void> {
-  const spinner = ora('Initializing Millhouse (local mode)...').start();
+async function runPlanMode(options: RunOptions): Promise<void> {
+  const spinner = ora('Initializing Millhouse (plan mode)...').start();
 
   try {
     const concurrency = parseInt(options.concurrency || '8', 10);
 
-    // Load work items from file
-    spinner.text = 'Loading work items...';
-    const filePath = options.file!;
-    const content = await fs.readFile(filePath, 'utf-8');
-    const workFile: LocalWorkFile = JSON.parse(content);
+    // Load plan from file
+    spinner.text = 'Loading plan...';
+    const planPath = options.plan!;
+    const planContent = await fs.readFile(planPath, 'utf-8');
+    spinner.succeed(`Loaded plan from ${planPath}`);
 
-    if (workFile.version !== 1) {
-      spinner.fail(`Unsupported work file version: ${workFile.version}`);
-      process.exit(1);
-    }
-
-    // Convert local items to GitHubIssue format for analysis
-    const issues: GitHubIssue[] = workFile.items.map(item => ({
-      number: item.id,
-      title: item.title,
-      body: item.body,
-      state: 'open' as const,
-      labels: [],
-      url: '',
-      htmlUrl: '',
-    }));
-
-    spinner.succeed(`Loaded ${issues.length} work item(s) from ${filePath}`);
-
-    // Analyze dependencies
-    console.log(chalk.blue('\n🔍 Analyzing dependencies...'));
-    const issueAnalyzer = new IssueAnalyzer();
-    const analyzedIssues = await issueAnalyzer.analyzeIssues(issues);
-    console.log(chalk.green(`   ✓ Analysis complete`));
+    // Parse plan into work items
+    console.log(chalk.blue('\n🔍 Analyzing plan...'));
+    const planParser = new PlanParser();
+    const analyzedIssues = await planParser.parse(planContent);
+    console.log(chalk.green(`   ✓ Created ${analyzedIssues.length} work item(s)`));
 
     // Load config
     const config = await loadConfig();
