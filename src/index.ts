@@ -11,14 +11,15 @@ const program = new Command();
 
 program
   .name('millhouse')
-  .description('Orchestrates multiple parallel Claude Code instances to work on GitHub issues')
+  .description('Orchestrates multiple parallel Claude Code instances to work on issues or local work items')
   .version('0.1.0');
 
 program
   .command('run')
-  .description('Start working on GitHub issues')
+  .description('Start working on GitHub issues or local work items')
   .option('-i, --issue <number>', 'Root issue number (recursively includes linked issues)')
   .option('--issues <numbers>', 'Comma-separated list of specific issue numbers')
+  .option('-f, --file <path>', 'Path to local work items JSON file')
   .option('-n, --concurrency <number>', 'Number of parallel workers', '8')
   .option('--dry-run', 'Analyze and plan without executing')
   .option('--dangerously-skip-permissions', 'Skip permission prompts in spawned Claude instances')

@@ -1,7 +1,7 @@
 {
   "name": "millhouse",
   "version": "0.1.0",
-  "description": "CLI tool that orchestrates multiple parallel Claude Code instances to work on GitHub issues",
+  "description": "CLI tool that orchestrates multiple parallel Claude Code instances to work on GitHub issues or local work items",
   "type": "module",
   "main": "dist/index.js",
   "bin": {

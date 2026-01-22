@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import ora from 'ora';
 import readline from 'node:readline';
+import { promises as fs } from 'node:fs';
 import { Orchestrator } from '../../core/orchestrator.js';
 import { loadConfig } from '../../storage/config.js';
 import { JsonStore } from '../../storage/json-store.js';
@@ -19,10 +20,12 @@ import {
 } from '../cleanup.js';
 import { resumeCommand } from './resume.js';
 import { ProgressDisplay } from '../progress-display.js';
+import type { AnalyzedIssue, LocalWorkFile } from '../../types.js';
 
 interface RunOptions {
   issue?: string;
   issues?: string;
+  file?: string;
   concurrency?: string;
   dryRun?: boolean;
   dangerouslySkipPermissions?: boolean;
@@ -79,6 +82,121 @@ export async function runCommand(options: RunOptions): Promise<void> {
     }
   }
 
+  // Determine mode: local file or GitHub
+  const isLocalMode = !!options.file;
+
+  if (isLocalMode) {
+    await runLocalMode(options);
+  } else {
+    await runGitHubMode(options);
+  }
+}
+
+async function runLocalMode(options: RunOptions): Promise<void> {
+  const spinner = ora('Initializing Millhouse (local mode)...').start();
+
+  try {
+    const concurrency = parseInt(options.concurrency || '8', 10);
+
+    // Load work items from file
+    spinner.text = 'Loading work items...';
+    const filePath = options.file!;
+    const content = await fs.readFile(filePath, 'utf-8');
+    const workFile: LocalWorkFile = JSON.parse(content);
+
+    if (workFile.version !== 1) {
+      spinner.fail(`Unsupported work file version: ${workFile.version}`);
+      process.exit(1);
+    }
+
+    // Convert local items to AnalyzedIssue format
+    const analyzedIssues: AnalyzedIssue[] = workFile.items.map(item => ({
+      number: item.id,
+      title: item.title,
+      body: item.body,
+      state: 'open' as const,
+      labels: [],
+      url: '',
+      htmlUrl: '',
+      affectedPaths: item.affectedPaths,
+      dependencies: item.dependencies,
+      analyzedAt: new Date().toISOString(),
+    }));
+
+    spinner.succeed(`Loaded ${analyzedIssues.length} work item(s) from ${filePath}`);
+
+    // Load config
+    const config = await loadConfig();
+
+    // Initialize components (no GitHub needed)
+    const store = new JsonStore();
+    const graphBuilder = new GraphBuilder();
+    const worktreeManager = new WorktreeManager();
+    const progressDisplay = new ProgressDisplay();
+
+    const claudeRunner = new ClaudeRunner(config, {
+      dangerouslySkipPermissions: options.dangerouslySkipPermissions,
+      onLog: (issueNumber, message) => {
+        progressDisplay.logDetailed(issueNumber, message);
+      },
+    });
+
+    const scheduler = new Scheduler({
+      concurrency,
+      continueOnError: config.execution.continueOnError,
+    });
+
+    // Create orchestrator without GitHub components
+    const orchestrator = new Orchestrator({
+      config,
+      store,
+      graphBuilder,
+      worktreeManager,
+      claudeRunner,
+      scheduler,
+      progressDisplay,
+      // No GitHub components - local mode
+    });
+
+    // Build graph
+    console.log(chalk.blue('\n🔗 Building dependency graph...'));
+    const graph = graphBuilder.build(analyzedIssues);
+    console.log(chalk.green(`   ✓ Graph built`));
+
+    // Show execution plan
+    console.log(chalk.blue('\n📊 Execution Plan:'));
+    const readyIssues = graph.getReady([]);
+    const blockedCount = analyzedIssues.length - readyIssues.length;
+    console.log(`   Total items: ${analyzedIssues.length}`);
+    console.log(`   Ready to start: ${readyIssues.length} (${readyIssues.map(i => `#${i}`).join(', ')})`);
+    console.log(`   Blocked by dependencies: ${blockedCount}`);
+    console.log(`   Concurrency: ${concurrency}`);
+
+    if (options.dryRun) {
+      console.log(chalk.yellow('\n🔍 Dry run complete. No changes made.'));
+      return;
+    }
+
+    // Run orchestration
+    console.log(chalk.blue('\n🚀 Starting execution...'));
+    const result = await orchestrator.run(analyzedIssues);
+
+    if (result.status === 'completed') {
+      console.log(chalk.green('\n✅ All items completed successfully!'));
+    } else if (result.status === 'failed') {
+      console.log(chalk.red(`\n❌ Run failed: ${result.error}`));
+      console.log(`   Completed: ${result.completedIssues.length}`);
+      console.log(`   Failed: ${result.failedIssues.length}`);
+      process.exit(1);
+    }
+  } catch (error) {
+    spinner.fail('Error');
+    console.error(chalk.red(`\n${error instanceof Error ? error.message : error}`));
+    process.exit(1);
+  }
+}
+
+async function runGitHubMode(options: RunOptions): Promise<void> {
   const spinner = ora('Initializing Millhouse...').start();
 
   try {

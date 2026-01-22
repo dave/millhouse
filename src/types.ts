@@ -1,5 +1,44 @@
 import { z } from 'zod';
 
+// =============================================================================
+// Work Items (abstraction for both GitHub issues and local items)
+// =============================================================================
+
+// Base work item interface - common to both GitHub and local modes
+export interface WorkItem {
+  id: number;
+  title: string;
+  body: string | null;
+  dependencies: number[]; // IDs of items this depends on
+  affectedPaths: string[];
+}
+
+// Analyzed work item ready for execution
+export interface AnalyzedWorkItem extends WorkItem {
+  analyzedAt: string;
+}
+
+// Local work items file format
+export interface LocalWorkFile {
+  version: 1;
+  name: string;
+  description?: string;
+  createdAt: string;
+  items: LocalWorkItem[];
+}
+
+export interface LocalWorkItem {
+  id: number;
+  title: string;
+  body: string;
+  dependencies: number[]; // IDs of items this depends on
+  affectedPaths: string[];
+}
+
+// =============================================================================
+// GitHub-specific types
+// =============================================================================
+
 // GitHub Issue
 export interface GitHubIssue {
   number: number;
@@ -11,11 +50,35 @@ export interface GitHubIssue {
   htmlUrl: string;
 }
 
-// Issue with analysis results
+// Issue with analysis results (for backward compatibility)
 export interface AnalyzedIssue extends GitHubIssue {
   affectedPaths: string[];
   dependencies: number[]; // Issue numbers this depends on
   analyzedAt: string;
+}
+
+// Convert AnalyzedIssue to AnalyzedWorkItem
+export function issueToWorkItem(issue: AnalyzedIssue): AnalyzedWorkItem {
+  return {
+    id: issue.number,
+    title: issue.title,
+    body: issue.body,
+    dependencies: issue.dependencies,
+    affectedPaths: issue.affectedPaths,
+    analyzedAt: issue.analyzedAt,
+  };
+}
+
+// Convert LocalWorkItem to AnalyzedWorkItem
+export function localToWorkItem(item: LocalWorkItem): AnalyzedWorkItem {
+  return {
+    id: item.id,
+    title: item.title,
+    body: item.body,
+    dependencies: item.dependencies,
+    affectedPaths: item.affectedPaths,
+    analyzedAt: new Date().toISOString(),
+  };
 }
 
 // Task status

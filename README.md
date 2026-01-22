@@ -1,8 +1,13 @@
 # Millhouse
 
-Millhouse orchestrates parallel Claude Code instances to automatically implement GitHub issues. Point it at an issue and it will discover related issues, analyze dependencies, and execute them in parallel where possible - respecting dependency order. When complete, it creates a single PR with all changes.
+Millhouse orchestrates parallel Claude Code instances to automatically implement work items. It supports two modes:
 
-## How It Works
+- **GitHub Mode:** Point it at GitHub issues and it discovers related issues, analyzes dependencies, and creates a PR with all changes
+- **Local Mode:** Define work items in a JSON file - no GitHub required
+
+In both modes, Millhouse executes work items in parallel where possible, respecting dependency order.
+
+## How It Works (GitHub Mode)
 
 ### 1. Issue Discovery
 
@@ -50,6 +55,49 @@ As each issue completes:
 - The worktree is cleaned up
 - Once all issues complete, a single PR is created with all changes
 
+## How It Works (Local Mode)
+
+Local mode works the same way as GitHub mode, but without GitHub:
+
+1. **Define work items** in a JSON file (manually or via `/millhouse local`)
+2. **Run millhouse** with `--file` flag
+3. **Parallel execution** proceeds exactly as in GitHub mode
+4. **Changes remain** on the local run branch (no PR created)
+
+### Work Items File Format
+
+```json
+{
+  "version": 1,
+  "name": "Feature name",
+  "description": "Optional description",
+  "createdAt": "2024-01-15T10:00:00Z",
+  "items": [
+    {
+      "id": 1,
+      "title": "Create math utilities",
+      "body": "Create `src/utils/math.ts` with add and multiply functions...",
+      "dependencies": [],
+      "affectedPaths": ["src/utils/math.ts"]
+    },
+    {
+      "id": 2,
+      "title": "Create calculator",
+      "body": "Create calculator class...\n\n**Depends on #1**",
+      "dependencies": [1],
+      "affectedPaths": ["src/calculator.ts"]
+    }
+  ]
+}
+```
+
+Each item needs:
+- `id`: Unique numeric identifier
+- `title`: Brief description
+- `body`: Full implementation details (same format as GitHub issues)
+- `dependencies`: Array of item IDs this depends on
+- `affectedPaths`: Files this item will create/modify
+
 ## Installation
 
 ```bash
@@ -61,17 +109,22 @@ npm link
 ## Prerequisites
 
 - Node.js 20+
-- GitHub CLI (`gh`) authenticated
 - Claude Code installed and authenticated
+- GitHub CLI (`gh`) authenticated (GitHub mode only)
 
 ## Usage
 
 ### Recommended Workflow
 
-1. **Plan with Claude Code:** Describe what you want to build, then use `/millhouse issues` to create GitHub issues
-2. **Run from terminal:** Execute `millhouse run` directly in your terminal for long-running jobs
+**GitHub Mode:**
+1. Plan with Claude Code, then use `/millhouse issues` to create GitHub issues
+2. Run `millhouse run` from terminal
 
-This split is recommended because Claude Code's Bash tool has a 10-minute timeout, which isn't enough for multi-issue runs that may take hours.
+**Local Mode:**
+1. Plan with Claude Code, then use `/millhouse local` to create a work items file
+2. Run `millhouse run --file <path>` from terminal
+
+Running from terminal is recommended because Claude Code's Bash tool has a 10-minute timeout, which isn't enough for multi-item runs.
 
 ### Setup Slash Command
 
@@ -85,21 +138,25 @@ millhouse setup
 millhouse setup --global
 ```
 
-### Creating Issues (Claude Code)
+### Creating Work Items (Claude Code)
 
-Use `/millhouse issues` within Claude Code to convert a plan into properly formatted GitHub issues:
+Use `/millhouse` within Claude Code to convert a plan into work items:
 
 ```
-/millhouse issues              # Describe your plan interactively
-/millhouse issues plan.md      # Create issues from a plan file
+/millhouse issues              # Create GitHub issues interactively
+/millhouse issues plan.md      # Create GitHub issues from a plan file
+
+/millhouse local               # Create local JSON file interactively
+/millhouse local plan.md       # Create local JSON file from a plan
 ```
 
 This is interactive and works well within Claude Code's timeout limits.
 
-### Running Issues (Terminal)
+### Running (Terminal)
 
-Run millhouse directly from your terminal for execution - especially for overnight or long-running jobs:
+Run millhouse directly from your terminal - especially for overnight or long-running jobs:
 
+**GitHub Mode:**
 ```bash
 # Run all open issues in the repository
 millhouse run
@@ -107,18 +164,23 @@ millhouse run
 # Run issue #5 and all its dependencies
 millhouse run --issue 5
 
+# Specific issues only (no recursive discovery)
+millhouse run --issues 1,2,3
+```
+
+**Local Mode:**
+```bash
+# Run from a local work items file
+millhouse run --file millhouse-work.json
+```
+
+**Common Options:**
+```bash
 # With skipped permissions for unattended execution
 millhouse run --dangerously-skip-permissions
 
 # Dry run to preview the execution plan
 millhouse run --dry-run
-```
-
-### More CLI Options
-
-```bash
-# Specific issues only (no recursive discovery)
-millhouse run --issues 1,2,3
 
 # Adjust parallelism (default: 8)
 millhouse run -n 5
@@ -140,9 +202,9 @@ If you interrupt a run (Ctrl+C), it saves state automatically:
 millhouse resume <run-id>
 ```
 
-## Writing Issues for Millhouse
+## Writing Work Items
 
-For best results, write issues that are:
+For best results, write work items (issues or local items) that are:
 
 **Specific and actionable:**
 ```markdown
@@ -188,9 +250,9 @@ Create `.millhouserc.json` in your project root:
 | `createAsDraft` | Create PR as draft | true |
 | `mergeStrategy` | PR merge strategy | squash |
 
-## GitHub Labels
+## GitHub Labels (GitHub Mode Only)
 
-Millhouse automatically manages labels to show progress:
+In GitHub mode, Millhouse automatically manages labels to show progress:
 
 | Label | Meaning |
 |-------|---------|
@@ -214,6 +276,11 @@ Millhouse automatically manages labels to show progress:
 ## Troubleshooting
 
 **Worktree errors after interrupted run:**
+```bash
+millhouse clean
+```
+
+Or manually:
 ```bash
 rm -rf .millhouse
 git worktree prune

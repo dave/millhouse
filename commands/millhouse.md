@@ -1,13 +1,14 @@
 # Millhouse
 
-Orchestrate parallel Claude Code instances to implement GitHub issues.
+Orchestrate parallel Claude Code instances to implement work items.
 
 ## Usage
 
 Parse $ARGUMENTS to determine the subcommand:
 
 - `/millhouse issues [plan-file]` - Create GitHub issues from a plan
-- `/millhouse run --issue <N>` - Execute issues in parallel
+- `/millhouse local [plan-file]` - Create local work items file from a plan
+- `/millhouse run` - Execute work items in parallel
 - `/millhouse status` - Show run status
 
 ---
@@ -106,29 +107,103 @@ The index issue should **not** include detailed dependency information—Millhou
 
 ---
 
+## /millhouse local
+
+Convert a plan into a local JSON file for Millhouse (no GitHub required).
+
+### Critical Context
+
+Same as `/millhouse issues` - work items will be implemented by Claude Code instances running **unattended in separate context windows**.
+
+### Instructions
+
+1. Read the plan from the file path argument, or ask the user to describe it
+2. Break it into discrete, implementable items
+3. For each item, identify dependencies on other items
+4. Create a JSON file with all work items
+
+### JSON File Format
+
+Create a file named `millhouse-work.json` (or a name specified by the user):
+
+```json
+{
+  "version": 1,
+  "name": "Feature name",
+  "description": "Brief description of the overall goal",
+  "createdAt": "2024-01-15T10:00:00Z",
+  "items": [
+    {
+      "id": 1,
+      "title": "Create math utilities",
+      "body": "Full description with implementation details, testing, and acceptance criteria...",
+      "dependencies": [],
+      "affectedPaths": ["src/utils/math.ts"]
+    },
+    {
+      "id": 2,
+      "title": "Create calculator",
+      "body": "Full description...\n\n**Depends on #1**",
+      "dependencies": [1],
+      "affectedPaths": ["src/calculator.ts"]
+    }
+  ]
+}
+```
+
+### Work Item Content Requirements
+
+Same as GitHub issues - each item must include:
+- Implementation details (file paths, function signatures)
+- Testing & verification instructions
+- Acceptance criteria
+- Dependencies (reference other item IDs)
+
+### After Creating the File
+
+Tell the user to run:
+```bash
+millhouse run --file millhouse-work.json
+```
+
+---
+
 ## /millhouse run
 
-Execute GitHub issues in parallel using the millhouse CLI.
+Execute work items in parallel using the millhouse CLI.
 
 **Important:** If the current Claude Code session is running with `--dangerously-skip-permissions`, add that flag to the millhouse command so spawned instances inherit the same permission level.
 
-### Examples
+### GitHub Mode (default)
 
 ```bash
+# Run all open issues
+millhouse run
+
 # Run issue #5 and all its dependencies
 millhouse run --issue 5
 
 # Run with skipped permissions (for unattended execution)
-millhouse run --issue 5 --dangerously-skip-permissions
+millhouse run --dangerously-skip-permissions
 
 # Dry run to see the execution plan
-millhouse run --issue 5 --dry-run
+millhouse run --dry-run
 
 # Run specific issues only
 millhouse run --issues 1,2,3
 ```
 
-Execute the command and wait for completion. Report the results including any PR URLs created.
+### Local Mode
+
+```bash
+# Run from a local work items file
+millhouse run --file millhouse-work.json
+
+# With skipped permissions
+millhouse run --file millhouse-work.json --dangerously-skip-permissions
+```
+
+Execute the command and wait for completion. Report the results including any PR URLs created (GitHub mode only).
 
 ---
 
