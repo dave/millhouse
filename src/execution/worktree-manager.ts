@@ -55,7 +55,7 @@ export class WorktreeManager {
   async createWorktree(runId: string, issueNumber: number, runBranch: string): Promise<WorktreeInfo> {
     await fs.mkdir(this.worktreesDir, { recursive: true });
 
-    const worktreePath = path.join(this.worktreesDir, `issue-${issueNumber}`);
+    const worktreePath = path.join(this.worktreesDir, `run-${runId}-issue-${issueNumber}`);
     // Each issue gets its own branch forked from the run branch
     // Use -issue- instead of /issue- to avoid git ref conflicts
     const issueBranch = `${runBranch}-issue-${issueNumber}`;
