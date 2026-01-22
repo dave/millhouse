@@ -18,6 +18,7 @@ import {
   displayLeftoverState,
 } from '../cleanup.js';
 import { resumeCommand } from './resume.js';
+import { ProgressDisplay } from '../progress-display.js';
 
 interface RunOptions {
   issue?: string;
@@ -114,8 +115,15 @@ export async function runCommand(options: RunOptions): Promise<void> {
     const issueAnalyzer = new IssueAnalyzer();
     const graphBuilder = new GraphBuilder();
     const worktreeManager = new WorktreeManager();
+
+    // Create progress display
+    const progressDisplay = new ProgressDisplay();
+
     const claudeRunner = new ClaudeRunner(config, {
       dangerouslySkipPermissions: options.dangerouslySkipPermissions,
+      onLog: (issueNumber, message) => {
+        progressDisplay.logDetailed(issueNumber, message);
+      },
     });
 
     // Create scheduler
@@ -136,6 +144,7 @@ export async function runCommand(options: RunOptions): Promise<void> {
       worktreeManager,
       claudeRunner,
       scheduler,
+      progressDisplay,
     });
 
     spinner.succeed('Initialized');

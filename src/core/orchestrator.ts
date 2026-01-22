@@ -9,6 +9,7 @@ import type { GraphBuilder, DependencyGraph } from '../analysis/graph-builder.js
 import type { WorktreeManager } from '../execution/worktree-manager.js';
 import type { ClaudeRunner } from '../execution/claude-runner.js';
 import type { Scheduler } from './scheduler.js';
+import type { ProgressDisplay } from '../cli/progress-display.js';
 
 interface OrchestratorOptions {
   config: Config;
@@ -21,6 +22,7 @@ interface OrchestratorOptions {
   worktreeManager: WorktreeManager;
   claudeRunner: ClaudeRunner;
   scheduler: Scheduler;
+  progressDisplay?: ProgressDisplay;
 }
 
 export class Orchestrator {
@@ -34,6 +36,7 @@ export class Orchestrator {
   private worktreeManager: WorktreeManager;
   private claudeRunner: ClaudeRunner;
   private scheduler: Scheduler;
+  private progressDisplay?: ProgressDisplay;
 
   private runState: RunState | null = null;
   private graph: DependencyGraph | null = null;
@@ -50,6 +53,7 @@ export class Orchestrator {
     this.worktreeManager = options.worktreeManager;
     this.claudeRunner = options.claudeRunner;
     this.scheduler = options.scheduler;
+    this.progressDisplay = options.progressDisplay;
 
     // Handle graceful shutdown
     this.setupShutdownHandlers();
@@ -141,8 +145,20 @@ export class Orchestrator {
       'queued'
     );
 
+    // Initialize progress display
+    if (this.progressDisplay) {
+      this.progressDisplay.initialize(analyzedIssues);
+      this.progressDisplay.start();
+    }
+
     // Run the scheduler
-    return this.executeScheduler(runId, runBranch, analyzedIssues);
+    try {
+      return await this.executeScheduler(runId, runBranch, analyzedIssues);
+    } finally {
+      if (this.progressDisplay) {
+        this.progressDisplay.stop();
+      }
+    }
   }
 
   /**
@@ -202,7 +218,11 @@ export class Orchestrator {
 
       try {
         // Create worktree
-        console.log(chalk.blue(`   Creating worktree for #${issueNumber}...`));
+        if (this.progressDisplay) {
+          this.progressDisplay.logDetailed(issueNumber, 'Creating worktree...');
+        } else {
+          console.log(chalk.blue(`   Creating worktree for #${issueNumber}...`));
+        }
         const worktree = await this.worktreeManager.createWorktree(
           runId,
           issueNumber,
@@ -211,12 +231,20 @@ export class Orchestrator {
         await this.store.saveWorktree(worktree);
 
         // Run Claude
-        console.log(chalk.blue(`   Running Claude for #${issueNumber}...`));
+        if (this.progressDisplay) {
+          this.progressDisplay.logDetailed(issueNumber, 'Running Claude...');
+        } else {
+          console.log(chalk.blue(`   Running Claude for #${issueNumber}...`));
+        }
         const result = await this.claudeRunner.run(issue, runId, worktree.path);
 
         if (result.success) {
           // Merge changes back
-          console.log(chalk.blue(`   Merging changes for #${issueNumber}...`));
+          if (this.progressDisplay) {
+            this.progressDisplay.logDetailed(issueNumber, 'Merging changes...');
+          } else {
+            console.log(chalk.blue(`   Merging changes for #${issueNumber}...`));
+          }
           const mergeResult = await this.worktreeManager.mergeWorktree(
             worktree.path,
             runBranch
@@ -292,19 +320,31 @@ export class Orchestrator {
 
     switch (event.type) {
       case 'task-started':
-        console.log(chalk.cyan(`   ▶ Started: #${event.issueNumber}`));
+        if (this.progressDisplay) {
+          this.progressDisplay.handleEvent({ type: 'issue-started', issueNumber: event.issueNumber! });
+        } else {
+          console.log(chalk.cyan(`   ▶ Started: #${event.issueNumber}`));
+        }
         await this.labelManager.markInProgress(event.issueNumber!);
         this.updateTaskStatus(event.issueNumber!, 'in-progress');
         break;
 
       case 'task-completed':
-        console.log(chalk.green(`   ✓ Completed: #${event.issueNumber}`));
+        if (this.progressDisplay) {
+          this.progressDisplay.handleEvent({ type: 'issue-completed', issueNumber: event.issueNumber! });
+        } else {
+          console.log(chalk.green(`   ✓ Completed: #${event.issueNumber}`));
+        }
         await this.labelManager.markDone(event.issueNumber!);
         this.updateTaskStatus(event.issueNumber!, 'completed', event.commits);
         break;
 
       case 'task-failed':
-        console.log(chalk.red(`   ✗ Failed: #${event.issueNumber} - ${event.error}`));
+        if (this.progressDisplay) {
+          this.progressDisplay.handleEvent({ type: 'issue-failed', issueNumber: event.issueNumber!, error: event.error || 'Unknown error' });
+        } else {
+          console.log(chalk.red(`   ✗ Failed: #${event.issueNumber} - ${event.error}`));
+        }
         await this.labelManager.markFailed(event.issueNumber!);
         await this.githubClient.addComment(
           event.issueNumber!,
@@ -314,7 +354,13 @@ export class Orchestrator {
         break;
 
       case 'tasks-unblocked':
-        console.log(chalk.cyan(`   ⏳ Unblocked: ${event.issueNumbers!.map(n => `#${n}`).join(', ')}`));
+        if (this.progressDisplay) {
+          for (const num of event.issueNumbers!) {
+            this.progressDisplay.handleEvent({ type: 'issue-unblocked', issueNumber: num });
+          }
+        } else {
+          console.log(chalk.cyan(`   ⏳ Unblocked: ${event.issueNumbers!.map(n => `#${n}`).join(', ')}`));
+        }
         for (const num of event.issueNumbers!) {
           this.updateTaskStatus(num, 'ready');
         }

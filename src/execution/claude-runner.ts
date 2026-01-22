@@ -16,16 +16,23 @@ interface RunResult {
   output?: string;
 }
 
+export type LogCallback = (issueNumber: number, message: string) => void;
+
 interface ClaudeRunnerOptions {
   dangerouslySkipPermissions?: boolean;
+  onLog?: LogCallback;
 }
 
 export class ClaudeRunner {
   private promptTemplate: string | null = null;
   private dangerouslySkipPermissions: boolean;
+  private onLog: LogCallback;
 
   constructor(_config: Config, options: ClaudeRunnerOptions = {}) {
     this.dangerouslySkipPermissions = options.dangerouslySkipPermissions ?? false;
+    this.onLog = options.onLog ?? ((issueNumber, message) => {
+      console.log(`   [#${issueNumber}] ${message}`);
+    });
   }
 
   /**
@@ -79,7 +86,6 @@ export class ClaudeRunner {
     worktreePath: string
   ): Promise<RunResult> {
     const prompt = await this.buildPrompt(issue, runId);
-    const issueTag = `#${issue.number}`;
 
     try {
       // Get commits before running Claude
@@ -116,7 +122,7 @@ export class ClaudeRunner {
                 messages.push(text);
                 // Log a preview of what Claude is saying
                 const preview = text.slice(0, 100).replace(/\n/g, ' ');
-                console.log(`   [${issueTag}] ${preview}${text.length > 100 ? '...' : ''}`);
+                this.onLog(issue.number, `${preview}${text.length > 100 ? '...' : ''}`);
               } else if (typeof block === 'object' && block && 'type' in block && block.type === 'tool_use') {
                 const toolBlock = block as { name?: string; input?: Record<string, unknown> };
                 const toolName = toolBlock.name || 'unknown';
@@ -124,19 +130,19 @@ export class ClaudeRunner {
                 if (toolName === 'Edit' || toolName === 'Write') {
                   const filePath = toolBlock.input?.file_path as string || '';
                   const fileName = filePath.split('/').pop() || filePath;
-                  console.log(`   [${issueTag}] 📝 ${toolName}: ${fileName}`);
+                  this.onLog(issue.number, `📝 ${toolName}: ${fileName}`);
                 } else if (toolName === 'Read') {
                   const filePath = toolBlock.input?.file_path as string || '';
                   const fileName = filePath.split('/').pop() || filePath;
-                  console.log(`   [${issueTag}] 📖 Reading: ${fileName}`);
+                  this.onLog(issue.number, `📖 Reading: ${fileName}`);
                 } else if (toolName === 'Bash') {
                   const cmd = (toolBlock.input?.command as string || '').slice(0, 50);
-                  console.log(`   [${issueTag}] 💻 ${cmd}${cmd.length >= 50 ? '...' : ''}`);
+                  this.onLog(issue.number, `💻 ${cmd}${cmd.length >= 50 ? '...' : ''}`);
                 } else if (toolName === 'Glob' || toolName === 'Grep') {
                   const pattern = toolBlock.input?.pattern as string || '';
-                  console.log(`   [${issueTag}] 🔍 ${toolName}: ${pattern}`);
+                  this.onLog(issue.number, `🔍 ${toolName}: ${pattern}`);
                 } else {
-                  console.log(`   [${issueTag}] 🔧 ${toolName}`);
+                  this.onLog(issue.number, `🔧 ${toolName}`);
                 }
               }
             }
@@ -210,7 +216,7 @@ export class ClaudeRunner {
 
       if (status) {
         // There are uncommitted changes - commit them
-        console.log(`   [#${issueNumber}] 📦 Committing changes...`);
+        this.onLog(issueNumber, '📦 Committing changes...');
 
         execSync('git add -A', { cwd: worktreePath });
         execSync(
