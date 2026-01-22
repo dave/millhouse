@@ -6,12 +6,123 @@ Orchestrate parallel Claude Code instances to implement work items.
 
 Parse $ARGUMENTS to determine the subcommand:
 
+- `/millhouse plan [plan-file]` - Refine a plan for millhouse execution
 - `/millhouse issues [plan-file]` - Create GitHub issues from a plan
 - `/millhouse status` - Show run status
 
 For plan-based execution without GitHub, save your plan to a file and run directly from terminal:
 ```bash
 millhouse run --plan plan.md
+```
+
+---
+
+## /millhouse plan
+
+Refine and improve a plan to make it suitable for millhouse execution.
+
+### Context
+
+Millhouse executes work items in **parallel using separate Claude Code instances**, each running **unattended in its own context window**. This means:
+
+- Each work item is a fresh start with no memory of previous work
+- Work items must be completely self-contained
+- Nothing can be assumed or left implicit
+
+### Instructions
+
+1. Read the plan from the file path argument, or ask the user to describe it
+2. Analyze the plan and rewrite it following the guidelines below
+3. Save the improved plan to a file (ask user for filename, default: `plan.md`)
+
+### Plan Improvement Guidelines
+
+Transform the plan to be millhouse-ready:
+
+**1. Separate work items clearly**
+- Each work item should be a distinct section
+- Work items will run in separate contexts, stage by stage
+- Make boundaries between items obvious
+
+**2. Split into appropriately-sized tasks**
+- Break large tasks into smaller sub-tasks where necessary
+- Each task should be small enough to complete in one go, unattended
+- A task that's "create an entire application" is too big
+- A task that's "create a function that adds two numbers" might be too small (unless it's a dependency)
+
+**3. Make each task self-contained**
+- Include ALL context needed to implement the task
+- Specify exact file paths to create or modify
+- Include function signatures, types, interfaces
+- Don't assume knowledge from other tasks
+
+**4. Add thorough acceptance criteria**
+- How do we know this task is done?
+- What commands verify it works? (e.g., `npm test`, `go build`)
+- What should the output look like?
+- What edge cases should be handled?
+
+**5. Add testing instructions**
+- Specific test commands to run
+- Expected results
+- How to verify integration with other components
+
+**6. Make dependencies explicit**
+- Which tasks must complete before this one can start?
+- What does this task need from its dependencies? (files, exports, etc.)
+- Use clear language like "This requires the math utilities from task 1"
+
+### Example Transformation
+
+**Before (too vague):**
+```markdown
+# My App
+- Build a calculator
+- Add tests
+```
+
+**After (millhouse-ready):**
+```markdown
+# Calculator App
+
+## 1. Initialize TypeScript Project
+Create the project structure with TypeScript configuration.
+
+### Implementation
+- Create `package.json` with name "calculator", typescript and vitest as dev dependencies
+- Create `tsconfig.json` with strict mode, ES2020 target, NodeNext module resolution
+- Create `src/` directory
+
+### Testing
+Run `npm install` and `npx tsc --noEmit` - should complete without errors.
+
+### Acceptance Criteria
+- [ ] `package.json` exists with correct dependencies
+- [ ] `tsconfig.json` exists with strict mode enabled
+- [ ] `src/` directory exists
+- [ ] `npm install && npx tsc --noEmit` succeeds
+
+## 2. Create Math Utilities
+Create basic arithmetic functions used by the calculator.
+
+**Depends on task 1** - needs the TypeScript project structure.
+
+### Implementation
+Create `src/math.ts` with:
+- `add(a: number, b: number): number` - returns sum
+- `subtract(a: number, b: number): number` - returns difference
+- `multiply(a: number, b: number): number` - returns product
+- `divide(a: number, b: number): number` - returns quotient, throws on division by zero
+
+### Testing
+Create `src/math.test.ts` with vitest tests for all functions including edge cases.
+Run `npx vitest run` - all tests should pass.
+
+### Acceptance Criteria
+- [ ] `src/math.ts` exports all four functions
+- [ ] `src/math.test.ts` has tests for each function
+- [ ] Tests cover division by zero error case
+- [ ] `npx vitest run` passes all tests
 ```
 
 ---
