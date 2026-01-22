@@ -36,6 +36,7 @@ export class ProgressDisplay {
     this.issues.clear();
     this.issueOrder = [];
 
+    // Build issue map first
     for (const issue of issues) {
       const blockedBy = issue.dependencies.filter(dep =>
         issues.some(i => i.number === dep)
@@ -50,8 +51,32 @@ export class ProgressDisplay {
           : 'Queued',
         blockedBy,
       });
-      this.issueOrder.push(issue.number);
     }
+
+    // Sort issues topologically: issues with no deps first, then their dependents
+    const issueNumbers = issues.map(i => i.number);
+    const visited = new Set<number>();
+    const sorted: number[] = [];
+
+    const visit = (num: number) => {
+      if (visited.has(num)) return;
+      visited.add(num);
+      const issue = this.issues.get(num);
+      if (issue) {
+        for (const dep of issue.blockedBy) {
+          if (issueNumbers.includes(dep)) {
+            visit(dep);
+          }
+        }
+      }
+      sorted.push(num);
+    };
+
+    for (const num of issueNumbers) {
+      visit(num);
+    }
+
+    this.issueOrder = sorted;
   }
 
   /**
@@ -71,7 +96,7 @@ export class ProgressDisplay {
         // Ctrl+C - exit
         if (char === '\u0003') {
           this.stop();
-          process.emit('SIGINT', 'SIGINT');
+          process.kill(process.pid, 'SIGINT');
           return;
         }
 
