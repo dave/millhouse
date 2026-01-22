@@ -9,7 +9,18 @@ In both modes, Millhouse executes work items in parallel where possible, respect
 
 ## Quick Start
 
-**GitHub Mode** - use the slash command to create issues, then run:
+### Plan Mode (No GitHub Required)
+
+```
+/millhouse plan             # Refine your plan for millhouse
+```
+```bash
+millhouse run --plan plan.md --dry-run   # Preview what will happen
+millhouse run --plan plan.md             # Execute the plan
+```
+
+### GitHub Mode
+
 ```
 /millhouse issues           # Create GitHub issues from your plan
 ```
@@ -17,75 +28,143 @@ In both modes, Millhouse executes work items in parallel where possible, respect
 millhouse run --issue 5     # Run issue #5 and dependencies
 ```
 
-**Plan Mode** - just write a plan and run it directly:
+## Slash Commands
+
+Install the `/millhouse` slash command for Claude Code:
+
 ```bash
-millhouse run --plan plan.md
+millhouse setup           # Install to current project
+millhouse setup --global  # Install globally
 ```
 
-## How It Works (GitHub Mode)
+### /millhouse plan
 
-### 1. Issue Discovery
+Refines a rough plan into a millhouse-ready format. Use this before running `millhouse run --plan`.
 
-When you run `millhouse run --issue 42`, it:
-- Fetches issue #42 from GitHub
-- Scans the issue body for references to other issues (`#1`, `#2`, etc.)
-- Recursively fetches and scans those issues too
-- Builds a complete list of all related issues
+```
+/millhouse plan                # Describe your plan interactively
+/millhouse plan rough-idea.md  # Refine an existing plan file
+```
 
-### 2. Dependency Analysis
+This transforms your plan to have:
+- **Clearly separated work items** - each runs in a separate context
+- **Appropriately-sized tasks** - small enough to complete unattended
+- **Self-contained descriptions** - all context included, nothing assumed
+- **Acceptance criteria** - how to verify each task is complete
+- **Testing instructions** - specific commands and expected results
+- **Explicit dependencies** - what must complete before each task
 
-Millhouse sends all discovered issues to Claude to analyze dependencies. It understands:
-- Explicit markers: "Depends on #1", "Blocked by #2", "After #3", "Requires #4"
-- Logical dependencies: If issue B imports from a file that issue A creates
+### /millhouse issues
+
+Creates GitHub issues from a plan. Use this for GitHub mode.
+
+```
+/millhouse issues              # Describe your plan interactively
+/millhouse issues plan.md      # Create issues from a plan file
+```
+
+### /millhouse status
+
+Shows the status of current and past millhouse runs.
+
+## How It Works
+
+### Dependency Analysis
+
+When you run millhouse, it sends your work items to Claude to analyze dependencies. It understands:
+- Explicit markers: "Depends on #1", "Blocked by #2", "After #3"
+- Logical dependencies: If task B imports from a file that task A creates
 - Semantic relationships: Claude infers dependencies automatically
 
-### 3. Dependency Graph & Scheduling
+### Parallel Execution
 
-Issues are organized into a directed acyclic graph (DAG). The scheduler:
-- Starts all issues with no dependencies in parallel (up to concurrency limit)
-- As each issue completes, unblocks dependent issues
-- Dynamically schedules newly-unblocked issues
+Work items are organized into a dependency graph. The scheduler:
+- Starts all items with no dependencies in parallel (up to concurrency limit)
+- As each item completes, unblocks dependent items
+- Dynamically schedules newly-unblocked items
 
-### 4. Parallel Execution with Git Worktrees
+### Git Worktrees
 
-Each issue runs in complete isolation:
+Each work item runs in complete isolation:
 - Creates a branch: `millhouse/run-{runId}-issue-{N}`
 - Creates a git worktree in `.millhouse/worktrees/run-{runId}-issue-{N}`
 - Claude Code runs in that worktree with full autonomy
-- Changes are committed to the issue's branch
+- Changes are committed to the item's branch
+- On completion, branches are merged back to the run branch
 
-### 5. Merging & PR Creation
+### GitHub Mode vs Plan Mode
 
-As each issue completes:
-- Its branch is merged back into the main run branch
-- The worktree is cleaned up
-- Once all issues complete, a single PR is created with all changes
+| | GitHub Mode | Plan Mode |
+|---|---|---|
+| Input | GitHub issues | Any text/markdown file |
+| Setup | `/millhouse issues` | `/millhouse plan` (optional) |
+| Run | `millhouse run --issue N` | `millhouse run --plan file.md` |
+| Output | Pull request | Changes on local branch |
+| Labels | Auto-managed | N/A |
 
-## How It Works (Plan Mode)
+## CLI Reference
 
-Plan mode works the same way, but Claude parses your plan file directly:
+### Running
 
-1. **Write a plan** - any markdown or text describing what you want to build
-2. **Run millhouse** with `--plan` flag
-3. **Claude analyzes** the plan, breaking it into discrete work items with dependencies
-4. **Parallel execution** proceeds exactly as in GitHub mode
-5. **Changes remain** on the local run branch (no PR created)
+```bash
+# GitHub mode
+millhouse run                    # Run all open issues
+millhouse run --issue 5          # Run issue #5 and dependencies
+millhouse run --issues 1,2,3     # Run specific issues only
 
-Example plan file:
-```markdown
-# Calculator Project
+# Plan mode
+millhouse run --plan plan.md     # Run from a plan file
 
-Build a simple calculator library in TypeScript.
-
-## Components
-
-1. Math utilities - basic add, subtract, multiply, divide functions
-2. Calculator class - uses math utilities, maintains state
-3. CLI interface - command-line calculator using the Calculator class
-4. Tests - unit tests for all components
+# Options
+millhouse run --dry-run          # Preview without executing
+millhouse run -n 4               # Limit to 4 parallel workers (default: 8)
+millhouse run --dangerously-skip-permissions  # Unattended execution
 ```
 
-Millhouse will parse this into work items, determine that the CLI depends on Calculator which depends on Math utilities, and execute in the correct order.
+### Other Commands
+
+```bash
+millhouse status              # Show all runs
+millhouse status --run-id X   # Show specific run
+millhouse resume <run-id>     # Resume interrupted run
+millhouse clean               # Clean up leftover state
+```
+
+## Writing Good Plans
+
+For best results, use `/millhouse plan` to refine your plan. Or write plans that include:
+
+**Clear task separation:**
+```markdown
+## 1. Create Math Utilities
+Create `src/math.ts` with add, subtract, multiply, divide functions.
+
+## 2. Create Calculator Class
+Create `src/calculator.ts` that uses the math utilities.
+**Depends on task 1.**
+```
+
+**Specific implementation details:**
+```markdown
+Create `src/math.ts` with:
+- `add(a: number, b: number): number`
+- `subtract(a: number, b: number): number`
+```
+
+**Testing instructions:**
+```markdown
+## Testing
+Run `npm test` - all tests should pass.
+Run `npm run build` - should compile without errors.
+```
+
+**Acceptance criteria:**
+```markdown
+## Acceptance Criteria
+- [ ] All four math functions exported
+- [ ] Tests cover edge cases (division by zero)
+- [ ] TypeScript compiles with strict mode
+```
 
 ## Installation
 
@@ -100,90 +179,6 @@ npm link
 - Node.js 20+
 - Claude Code installed and authenticated
 - GitHub CLI (`gh`) authenticated (GitHub mode only)
-
-## Usage
-
-### Setup Slash Command
-
-Install the `/millhouse` slash command for Claude Code:
-
-```bash
-millhouse setup           # Install to current project
-millhouse setup --global  # Install globally
-```
-
-### GitHub Mode
-
-```bash
-# Run all open issues in the repository
-millhouse run
-
-# Run issue #5 and all its dependencies
-millhouse run --issue 5
-
-# Specific issues only (no recursive discovery)
-millhouse run --issues 1,2,3
-```
-
-### Plan Mode
-
-```bash
-# Run from a plan file
-millhouse run --plan plan.md
-millhouse run --plan TODO.txt
-millhouse run --plan features.md
-```
-
-### Common Options
-
-```bash
-# With skipped permissions for unattended execution
-millhouse run --dangerously-skip-permissions
-
-# Dry run to preview the execution plan
-millhouse run --dry-run
-
-# Adjust parallelism (default: 8)
-millhouse run -n 5
-```
-
-### Check Status
-
-```bash
-millhouse status              # Show all runs
-millhouse status --run-id X   # Show specific run
-millhouse status --json       # Output as JSON
-```
-
-### Resume Interrupted Run
-
-If you interrupt a run (Ctrl+C), it saves state automatically:
-
-```bash
-millhouse resume <run-id>
-```
-
-## Writing Good Plans
-
-For best results, write plans that are:
-
-**Clear about what to build:**
-```markdown
-Create a math utilities module with:
-- add(a, b) - returns sum
-- multiply(a, b) - returns product
-```
-
-**Explicit about dependencies:**
-```markdown
-The Calculator class should use the math utilities module.
-```
-
-**Specific about file structure:**
-```markdown
-Put math utilities in src/utils/math.ts
-Put the Calculator class in src/calculator.ts
-```
 
 ## Configuration
 
@@ -204,35 +199,24 @@ Create `.millhouserc.json` in your project root:
 ```
 
 | Option | Description | Default |
-|--------|-------------|---------|
+|---|---|---|
 | `concurrency` | Max parallel Claude instances | 8 |
 | `baseBranch` | Branch to base work on | main |
-| `continueOnError` | Keep going if one issue fails | true |
+| `continueOnError` | Keep going if one item fails | true |
 | `createAsDraft` | Create PR as draft | true |
 | `mergeStrategy` | PR merge strategy | squash |
 
 ## GitHub Labels (GitHub Mode Only)
 
-In GitHub mode, Millhouse automatically manages labels to show progress:
+Millhouse automatically manages labels to show progress:
 
 | Label | Meaning |
-|-------|---------|
+|---|---|
 | `millhouse:queued` | Waiting in queue |
 | `millhouse:in-progress` | Claude is actively working |
 | `millhouse:blocked` | Waiting for dependency |
 | `millhouse:failed` | Execution failed |
 | `millhouse:done` | Completed successfully |
-
-## State Storage
-
-```
-.millhouse/
-├── runs/
-│   └── {run-id}.json    # Full run state (resumable)
-├── worktrees/
-│   └── run-{runId}-issue-{N}/  # Git worktrees (temporary)
-└── worktrees.json       # Active worktree tracking
-```
 
 ## Troubleshooting
 
@@ -241,20 +225,8 @@ In GitHub mode, Millhouse automatically manages labels to show progress:
 millhouse clean
 ```
 
-Or manually:
-```bash
-rm -rf .millhouse
-git worktree prune
-git branch | grep millhouse | xargs git branch -D
-```
-
 **To see what Claude is doing:**
-The CLI shows real-time activity for each work item:
-```
-[#1] 📝 Write: math.ts
-[#2] 💻 npm test
-[#3] 📖 Reading: package.json
-```
+The CLI shows real-time activity for each work item. Press `v` to toggle between compact and detailed view.
 
 ## License
 
