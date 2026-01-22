@@ -83,40 +83,36 @@ async function checkLeftoverState(): Promise<boolean> {
   return true; // No leftovers, continue
 }
 
-async function findMostRecentPlan(): Promise<string | null> {
-  const plansDir = path.join(os.homedir(), '.claude', 'plans');
+async function findLocalPlan(): Promise<string | null> {
+  // Check for common plan filenames in the current directory
+  const planNames = ['plan.md', 'PLAN.md', 'millhouse-plan.md'];
 
-  try {
-    const files = await fs.readdir(plansDir);
-    const mdFiles = files.filter(f => f.endsWith('.md'));
-
-    if (mdFiles.length === 0) {
-      return null;
+  for (const name of planNames) {
+    try {
+      await fs.access(name);
+      return name;
+    } catch {
+      // Not found, try next
     }
-
-    const fileStats = await Promise.all(
-      mdFiles.map(async (f) => {
-        const fullPath = path.join(plansDir, f);
-        const stat = await fs.stat(fullPath);
-        return { path: fullPath, mtime: stat.mtime };
-      })
-    );
-
-    fileStats.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
-    return fileStats[0].path;
-  } catch {
-    return null;
   }
+
+  return null;
 }
 
 async function resolvePlanPath(planPath: string | undefined): Promise<string> {
-  // If no plan specified, find most recent plan
+  // If no plan specified, look for plan.md in current directory
   if (!planPath) {
-    const recentPlan = await findMostRecentPlan();
-    if (!recentPlan) {
-      throw new Error('No plan files found in ~/.claude/plans/');
+    const localPlan = await findLocalPlan();
+    if (localPlan) {
+      return localPlan;
     }
-    return recentPlan;
+    throw new Error(
+      'No plan.md found in current directory.\n\n' +
+      'Either:\n' +
+      '  1. Run /millhouse plan in Claude Code to create a plan\n' +
+      '  2. Specify a plan file: millhouse run ./my-plan.md\n' +
+      '  3. Specify a plan from ~/.claude/plans/: millhouse run plan-name.md'
+    );
   }
 
   // First, try the path as given
