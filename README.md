@@ -35,13 +35,6 @@ millhouse run --issue 5     # Run millhouse with issue 5 and all linked issues
 
 ## Slash Commands
 
-Install the `/millhouse` slash command for Claude Code:
-
-```bash
-millhouse setup           # Install to current project
-millhouse setup --global  # Install globally
-```
-
 ### /millhouse plan
 
 Refines a rough plan into a millhouse-ready format. Use this before running `/millhouse issues` or `millhouse run`.
@@ -176,6 +169,14 @@ npm install
 npm run build
 npm link
 ```
+
+Install the `/millhouse` slash command for Claude Code:
+
+```bash
+millhouse setup           # Install to current project
+millhouse setup --global  # Install globally
+```
+
 
 ## Prerequisites
 
