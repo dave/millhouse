@@ -10,9 +10,8 @@ Parse $ARGUMENTS to determine the subcommand:
 - `/millhouse issues [plan-file]` - Create GitHub issues from a plan
 - `/millhouse status` - Show run status
 
-If no subcommand is given (empty $ARGUMENTS), just output this usage text and stop:
+If no subcommand is given (empty $ARGUMENTS), output EXACTLY this text and nothing else:
 
-```
 Millhouse - orchestrate parallel Claude Code instances
 
 Slash commands (run inside Claude Code):
@@ -29,9 +28,8 @@ Workflow:
   1. Use /millhouse plan to prepare your plan
   2. Exit Claude Code
   3. Run: millhouse run --plan
-```
 
-Do not run any commands or ask any questions - just output the usage text above.
+IMPORTANT: Do not add any preamble like "I'll help you" or "Here are the options". Do not ask "Which subcommand would you like to run?" Just output the usage text above exactly as written and stop.
 
 ---
 
