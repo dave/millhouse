@@ -74,8 +74,8 @@ ${chalk.bold('Slash commands (in Claude Code):')}
   /millhouse issues [file]     Create GitHub issues (omit file to use current plan)
 
 ${chalk.bold('Then run from terminal:')}
-  millhouse run --plan [file]  Execute plan (omit file to use latest plan)
-  millhouse run --issue N      Execute GitHub issues
+  millhouse run [file]         Execute plan (omit file to use latest plan)
+  millhouse run issues [N]     Execute GitHub issues (omit N to run all)
   millhouse status             Show run status
 `);
   } catch (error) {

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { runCommand } from './cli/commands/run.js';
+import { runPlanCommand, runIssuesCommand } from './cli/commands/run.js';
 import { statusCommand } from './cli/commands/status.js';
 import { resumeCommand } from './cli/commands/resume.js';
 import { setupCommand } from './cli/commands/setup.js';
@@ -14,17 +14,27 @@ program
   .description('Orchestrates multiple parallel Claude Code instances to work on GitHub issues or plan files')
   .version('0.1.0');
 
-program
+// Main run command - defaults to plan mode
+const runCmd = program
   .command('run')
-  .description('Start working on GitHub issues or a plan file')
-  .option('-i, --issue <number>', 'Root issue number (recursively includes linked issues)')
-  .option('--issues <numbers>', 'Comma-separated list of specific issue numbers')
-  .option('-p, --plan [path]', 'Path to a plan file (omit to use latest plan)')
+  .description('Execute a plan file (default) or GitHub issues')
+  .argument('[plan]', 'Path to plan file (omit to use latest from ~/.claude/plans/)')
   .option('-n, --concurrency <number>', 'Number of parallel workers', '8')
   .option('-d, --display <mode>', 'Display mode: compact or detailed', 'compact')
   .option('--dry-run', 'Analyze and plan without executing')
   .option('--dangerously-skip-permissions', 'Skip permission prompts in spawned Claude instances')
-  .action(runCommand);
+  .action(runPlanCommand);
+
+// Subcommand for GitHub issues mode
+runCmd
+  .command('issues')
+  .description('Execute GitHub issues')
+  .argument('[numbers]', 'Comma-separated issue numbers (omit to run all open issues)')
+  .option('-n, --concurrency <number>', 'Number of parallel workers', '8')
+  .option('-d, --display <mode>', 'Display mode: compact or detailed', 'compact')
+  .option('--dry-run', 'Analyze and plan without executing')
+  .option('--dangerously-skip-permissions', 'Skip permission prompts in spawned Claude instances')
+  .action(runIssuesCommand);
 
 program
   .command('status')

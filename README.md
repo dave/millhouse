@@ -17,7 +17,8 @@ In Claude Code:
 ```
 ... then exit Claude Code and run at the command line:
 ```bash
-millhouse run --plan        # Execute the plan
+millhouse run               # Execute the most recent plan
+millhouse run plan.md       # Execute a specific plan file
 ```
 
 ### GitHub Issues Mode
@@ -29,8 +30,9 @@ In Claude Code:
 ```
 ... then exit Claude Code and run at the command line:
 ```bash
-millhouse run               # Run millhouse with all open issues
-millhouse run --issue 5     # Run millhouse with issue 5 and all linked issues
+millhouse run issues        # Run all open GitHub issues
+millhouse run issues 5      # Run issue #5 and linked issues
+millhouse run issues 1,2,3  # Run specific issues
 ```
 
 ## Slash Commands
@@ -88,31 +90,31 @@ Each work item runs in complete isolation:
 
 ### GitHub Mode vs Plan Mode
 
-| | GitHub Mode                                | Plan Mode                       |
+| | GitHub Mode                                | Plan Mode                     |
 |---|--------------------------------------------|---------------------------------|
-| Input | GitHub issues                              | Any text/markdown file          |
-| Setup | `/millhouse plan` then `/millhouse issues` | `/millhouse plan`               |
-| Run | `millhouse run [--issue N]`                | `millhouse run --plan [file.md]` |
-| Output | Pull request                               | Changes on local branch         |
-| Labels | Auto-managed                               | N/A                             |
+| Input | GitHub issues                              | Any text/markdown file        |
+| Setup | `/millhouse plan` then `/millhouse issues` | `/millhouse plan`             |
+| Run | `millhouse run issues [N]`                 | `millhouse run [file.md]`     |
+| Output | Pull request                               | Changes on local branch       |
+| Labels | Auto-managed                               | N/A                           |
 
 ## CLI Reference
 
 ### Running
 
 ```bash
-# GitHub mode
-millhouse run                    # Run all open issues
-millhouse run --issue 5          # Run issue #5 and dependencies
-millhouse run --issues 1,2,3     # Run specific issues only
+# Plan mode (default)
+millhouse run                    # Run most recent plan from ~/.claude/plans/
+millhouse run plan.md            # Run a specific plan file
 
-# Plan mode
-millhouse run --plan             # Run most recent plan from ~/.claude/plans/
-millhouse run --plan plan.md     # Run from a plan file
+# GitHub issues mode
+millhouse run issues             # Run all open issues
+millhouse run issues 5           # Run issue #5 and dependencies
+millhouse run issues 1,2,3       # Run specific issues only
 
-# Options
+# Options (work with both modes)
 millhouse run --dry-run          # Preview without executing
-millhouse run -n 16              # Limit to 4 parallel workers (default: 8)
+millhouse run -n 16              # Set parallel workers (default: 8)
 millhouse run -d detailed        # Start in detailed view (default: compact)
 millhouse run --dangerously-skip-permissions  # Unattended execution
 ```

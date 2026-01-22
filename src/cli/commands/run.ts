@@ -25,9 +25,6 @@ import { resumeCommand } from './resume.js';
 import { ProgressDisplay } from '../progress-display.js';
 
 interface RunOptions {
-  issue?: string;
-  issues?: string;
-  plan?: string | true;  // true when --plan given without value
   concurrency?: string;
   display?: 'compact' | 'detailed';
   dryRun?: boolean;
@@ -48,14 +45,12 @@ async function promptUser(question: string): Promise<string> {
   });
 }
 
-export async function runCommand(options: RunOptions): Promise<void> {
-  // Check for leftover state from previous runs
+async function checkLeftoverState(): Promise<boolean> {
   const leftoverState = await detectLeftoverState();
 
   if (leftoverState.hasLeftovers) {
     displayLeftoverState(leftoverState);
 
-    // Build prompt based on what we found
     let prompt = 'What would you like to do?\n';
     if (leftoverState.interruptedRuns.length > 0) {
       prompt += '  [r] Resume the most recent interrupted run\n';
@@ -67,32 +62,25 @@ export async function runCommand(options: RunOptions): Promise<void> {
     const choice = await promptUser(prompt);
 
     if (choice === 'r' && leftoverState.interruptedRuns.length > 0) {
-      // Resume the most recent interrupted run
       const mostRecent = leftoverState.interruptedRuns.sort(
         (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
       )[0];
       console.log(chalk.blue(`\nResuming run: ${mostRecent.id}\n`));
       await resumeCommand(mostRecent.id);
-      return;
+      return false; // Don't continue with new run
     } else if (choice === 'c') {
       const spinner = ora('Cleaning up...').start();
       await cleanupAllState();
       spinner.succeed('Cleaned up previous state');
       console.log('');
+      return true; // Continue with new run
     } else {
       console.log(chalk.gray('Exiting.'));
       process.exit(0);
     }
   }
 
-  // Determine mode: plan file or GitHub
-  const isPlanMode = !!options.plan;
-
-  if (isPlanMode) {
-    await runPlanMode(options);
-  } else {
-    await runGitHubMode(options);
-  }
+  return true; // No leftovers, continue
 }
 
 async function findMostRecentPlan(): Promise<string | null> {
@@ -106,7 +94,6 @@ async function findMostRecentPlan(): Promise<string | null> {
       return null;
     }
 
-    // Get stats for all .md files and sort by mtime
     const fileStats = await Promise.all(
       mdFiles.map(async (f) => {
         const fullPath = path.join(plansDir, f);
@@ -122,9 +109,9 @@ async function findMostRecentPlan(): Promise<string | null> {
   }
 }
 
-async function resolvePlanPath(planPath: string | true): Promise<string> {
-  // If --plan was given without a value, find most recent plan
-  if (planPath === true) {
+async function resolvePlanPath(planPath: string | undefined): Promise<string> {
+  // If no plan specified, find most recent plan
+  if (!planPath) {
     const recentPlan = await findMostRecentPlan();
     if (!recentPlan) {
       throw new Error('No plan files found in ~/.claude/plans/');
@@ -155,7 +142,11 @@ async function resolvePlanPath(planPath: string | true): Promise<string> {
   return planPath;
 }
 
-async function runPlanMode(options: RunOptions): Promise<void> {
+// Plan mode: millhouse run [plan-file]
+export async function runPlanCommand(plan: string | undefined, options: RunOptions): Promise<void> {
+  const shouldContinue = await checkLeftoverState();
+  if (!shouldContinue) return;
+
   const spinner = ora('Initializing Millhouse (plan mode)...').start();
 
   try {
@@ -163,7 +154,7 @@ async function runPlanMode(options: RunOptions): Promise<void> {
 
     // Load plan from file (check ~/.claude/plans/ if not found locally)
     spinner.text = 'Loading plan...';
-    const planPath = await resolvePlanPath(options.plan!);
+    const planPath = await resolvePlanPath(plan);
     const planContent = await fs.readFile(planPath, 'utf-8');
     spinner.succeed(`Loaded plan from ${planPath}`);
 
@@ -203,7 +194,6 @@ async function runPlanMode(options: RunOptions): Promise<void> {
       claudeRunner,
       scheduler,
       progressDisplay,
-      // No GitHub components - local mode
     });
 
     // Build graph
@@ -244,8 +234,12 @@ async function runPlanMode(options: RunOptions): Promise<void> {
   }
 }
 
-async function runGitHubMode(options: RunOptions): Promise<void> {
-  const spinner = ora('Initializing Millhouse...').start();
+// GitHub issues mode: millhouse run issues [numbers]
+export async function runIssuesCommand(numbers: string | undefined, options: RunOptions): Promise<void> {
+  const shouldContinue = await checkLeftoverState();
+  if (!shouldContinue) return;
+
+  const spinner = ora('Initializing Millhouse (GitHub issues mode)...').start();
 
   try {
     const concurrency = parseInt(options.concurrency || '8', 10);
@@ -258,14 +252,18 @@ async function runGitHubMode(options: RunOptions): Promise<void> {
     const githubClient = new GitHubClient();
 
     // Parse issue numbers or fetch all open issues
-    let issueNumbers = parseIssueNumbers(options);
-    let recursive = !!options.issue && !options.issues;
+    let issueNumbers: number[] = [];
+    let recursive = false;
+
+    if (numbers) {
+      issueNumbers = numbers.split(',').map(s => parseInt(s.trim(), 10));
+      recursive = issueNumbers.length === 1; // Single issue = recursive discovery
+    }
 
     if (issueNumbers.length === 0) {
       spinner.text = 'Fetching all open issues...';
       const openIssues = await githubClient.listOpenIssues();
       issueNumbers = openIssues.map(i => i.number);
-      recursive = false; // Already have all issues
 
       if (issueNumbers.length === 0) {
         spinner.fail('No open issues found in this repository');
@@ -275,6 +273,7 @@ async function runGitHubMode(options: RunOptions): Promise<void> {
     } else {
       spinner.succeed('Initialized');
     }
+
     const store = new JsonStore();
     const labelManager = new LabelManager(githubClient);
     const issueDiscoverer = new IssueDiscoverer(githubClient);
@@ -312,8 +311,6 @@ async function runGitHubMode(options: RunOptions): Promise<void> {
       scheduler,
       progressDisplay,
     });
-
-    spinner.succeed('Initialized');
 
     // Discover issues
     console.log(chalk.blue('\n📋 Discovering issues...'));
@@ -364,14 +361,4 @@ async function runGitHubMode(options: RunOptions): Promise<void> {
     console.error(chalk.red(`\n${error instanceof Error ? error.message : error}`));
     process.exit(1);
   }
-}
-
-function parseIssueNumbers(options: RunOptions): number[] {
-  if (options.issue) {
-    return [parseInt(options.issue, 10)];
-  }
-  if (options.issues) {
-    return options.issues.split(',').map(s => parseInt(s.trim(), 10));
-  }
-  return [];
 }

@@ -199,7 +199,7 @@ After creating all implementation issues, create a final **index issue** that se
 
 - A one-line summary of the overall goal
 - A list of all created issues with their numbers and a brief description
-- The command to run: `millhouse run --issue <index-number>`
+- The command to run: `millhouse run issues <index-number>`
 
 Example:
 
@@ -216,7 +216,7 @@ Implement a calculator library with math utilities.
 ## Run
 
 \`\`\`bash
-millhouse run --issue <this-issue-number>
+millhouse run issues <this-issue-number>
 \`\`\`
 ```
 
