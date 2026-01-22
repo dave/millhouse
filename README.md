@@ -1,5 +1,7 @@
 # Millhouse
 
+[![Millhouse](millhouse.jpg)](https://www.reddit.com/r/simpsonsshitposting/s/ZB5cDcwnqU)
+
 Millhouse orchestrates parallel Claude Code instances to automatically implement work items. It supports two modes:
 
 - **GitHub Mode:** Point it at GitHub issues and it discovers related issues, analyzes dependencies, and creates a PR with all changes
