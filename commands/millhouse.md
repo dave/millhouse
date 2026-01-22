@@ -28,7 +28,7 @@ Ask the user which subcommand they'd like to use, or if they'd like help creatin
 
 ## /millhouse plan
 
-Refine and improve a plan to make it suitable for millhouse execution.
+Refine and improve a plan to make it suitable for millhouse execution. This should be fast and unattended - don't ask clarifying questions, just improve the plan.
 
 ### Context
 
@@ -40,9 +40,11 @@ Millhouse executes work items in **parallel using separate Claude Code instances
 
 ### Instructions
 
-1. Read the plan from the file path argument, or ask the user to describe it
+1. Read the plan from the file path argument. If no file given, look for plan.md or ask for the filename only.
 2. Analyze the plan and rewrite it following the guidelines below
-3. Save the improved plan to a file (ask user for filename, default: `plan.md`)
+3. Save the improved plan to the same file (overwrite), or `plan.md` if it was a new plan
+4. **Do not ask questions about features, scope, or implementation details** - work with what's given
+5. **Do not suggest additions** - only restructure and clarify what's already in the plan
 
 ### Plan Improvement Guidelines
 
@@ -80,6 +82,13 @@ Transform the plan to be millhouse-ready:
 - Which tasks must complete before this one can start?
 - What does this task need from its dependencies? (files, exports, etc.)
 - Use clear language like "This requires the math utilities from task 1"
+
+### Important: Be Non-Interactive
+
+- **Don't ask** if the user wants to add features, tests, or documentation
+- **Don't suggest** expanding scope or adding "nice to haves"
+- **Just restructure** the existing plan into millhouse-ready format
+- If something is ambiguous, make a reasonable assumption and note it in the task
 
 ### Example Transformation
 
