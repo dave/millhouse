@@ -2,7 +2,12 @@ import { query } from '@anthropic-ai/claude-code';
 import { execSync } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { AnalyzedIssue, Config } from '../types.js';
+
+// ES modules equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 interface RunResult {
   success: boolean;

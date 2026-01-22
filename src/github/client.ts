@@ -10,7 +10,16 @@ export class GitHubClient {
   constructor() {
     // Get token from gh CLI or environment
     const token = this.getGitHubToken();
-    this.octokit = new Octokit({ auth: token });
+    this.octokit = new Octokit({
+      auth: token,
+      log: {
+        // Silence Octokit's built-in logging
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      },
+    });
 
     // Get repo info from git remote
     const { owner, repo } = this.getRepoInfo();
