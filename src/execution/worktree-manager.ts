@@ -210,4 +210,37 @@ export class WorktreeManager {
     const { stdout } = await execAsync('git branch --show-current', { cwd: this.basePath });
     return stdout.trim();
   }
+
+  /**
+   * Restore to a specific branch, aborting any in-progress merge.
+   */
+  async restoreBranch(branchName: string): Promise<void> {
+    // Abort any in-progress merge
+    try {
+      await execAsync('git merge --abort', { cwd: this.basePath });
+    } catch {
+      // No merge in progress, that's fine
+    }
+
+    // Abort any in-progress rebase
+    try {
+      await execAsync('git rebase --abort', { cwd: this.basePath });
+    } catch {
+      // No rebase in progress, that's fine
+    }
+
+    // Discard any uncommitted changes
+    try {
+      await execAsync('git checkout -- .', { cwd: this.basePath });
+    } catch {
+      // Might fail if no changes, that's fine
+    }
+
+    // Switch back to original branch
+    try {
+      await execAsync(`git checkout "${branchName}"`, { cwd: this.basePath });
+    } catch {
+      // Branch might not exist or other issue
+    }
+  }
 }

@@ -41,6 +41,7 @@ export class Orchestrator {
   private runState: RunState | null = null;
   private graph: DependencyGraph | null = null;
   private isShuttingDown = false;
+  private originalBranch: string | null = null;
 
   constructor(options: OrchestratorOptions) {
     this.config = options.config;
@@ -73,6 +74,12 @@ export class Orchestrator {
         console.log(chalk.yellow(`   Run saved. Resume with: millhouse resume ${this.runState.id}`));
       }
 
+      // Restore original branch
+      if (this.originalBranch) {
+        console.log(chalk.yellow(`   Restoring branch: ${this.originalBranch}`));
+        await this.worktreeManager.restoreBranch(this.originalBranch);
+      }
+
       process.exit(0);
     };
 
@@ -98,6 +105,9 @@ export class Orchestrator {
    * Run the full orchestration pipeline.
    */
   async run(analyzedIssues: AnalyzedIssue[]): Promise<RunState> {
+    // Save original branch to restore later
+    this.originalBranch = await this.worktreeManager.getCurrentBranch();
+
     // Create run state
     const runId = this.store.generateRunId();
     const baseBranch = this.config.execution.baseBranch;
@@ -158,6 +168,10 @@ export class Orchestrator {
       if (this.progressDisplay) {
         this.progressDisplay.stop();
       }
+      // Restore original branch
+      if (this.originalBranch) {
+        await this.worktreeManager.restoreBranch(this.originalBranch);
+      }
     }
   }
 
@@ -165,6 +179,9 @@ export class Orchestrator {
    * Resume an interrupted run.
    */
   async resume(runState: RunState): Promise<RunState> {
+    // Save original branch to restore later
+    this.originalBranch = await this.worktreeManager.getCurrentBranch();
+
     this.runState = runState;
 
     // Rebuild graph from issues
@@ -176,11 +193,18 @@ export class Orchestrator {
     await this.store.saveRun(this.runState);
 
     // Continue from where we left off
-    return this.executeScheduler(
-      runState.id,
-      runState.runBranch,
-      runState.issues
-    );
+    try {
+      return await this.executeScheduler(
+        runState.id,
+        runState.runBranch,
+        runState.issues
+      );
+    } finally {
+      // Restore original branch
+      if (this.originalBranch) {
+        await this.worktreeManager.restoreBranch(this.originalBranch);
+      }
+    }
   }
 
   /**
