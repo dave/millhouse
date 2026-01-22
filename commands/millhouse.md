@@ -144,8 +144,7 @@ Create the output file (default `millhouse-work.json`):
     {
       "id": 2,
       "title": "Create calculator",
-      "body": "Full description...\n\n**Depends on #1**",
-      "dependencies": [1]
+      "body": "Full description...\n\n**Depends on #1**"
     }
   ]
 }
@@ -157,8 +156,9 @@ Same as GitHub issues - the body should include:
 - Implementation details (file paths, function signatures)
 - Testing & verification instructions
 - Acceptance criteria
+- Dependencies using `**Depends on #N**` format in the body text
 
-The `dependencies` array is optional - if omitted, the item has no dependencies.
+Dependencies are analyzed at runtime from the body text, just like GitHub mode.
 
 ### After Creating the File
 

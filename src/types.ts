@@ -31,8 +31,8 @@ export interface LocalWorkItem {
   id: number;
   title: string;
   body: string;
-  dependencies?: number[]; // IDs of items this depends on
-  affectedPaths?: string[];
+  // Note: dependencies are analyzed at runtime from the body text
+  // Use "**Depends on #N**" in the body to indicate dependencies
 }
 
 // =============================================================================
@@ -70,13 +70,14 @@ export function issueToWorkItem(issue: AnalyzedIssue): AnalyzedWorkItem {
 }
 
 // Convert LocalWorkItem to AnalyzedWorkItem
+// Note: dependencies and affectedPaths are determined by IssueAnalyzer at runtime
 export function localToWorkItem(item: LocalWorkItem): AnalyzedWorkItem {
   return {
     id: item.id,
     title: item.title,
     body: item.body,
-    dependencies: item.dependencies || [],
-    affectedPaths: item.affectedPaths || [],
+    dependencies: [], // Filled in by analyzer
+    affectedPaths: [], // Filled in by analyzer
     analyzedAt: new Date().toISOString(),
   };
 }

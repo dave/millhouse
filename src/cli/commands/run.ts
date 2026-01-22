@@ -20,7 +20,7 @@ import {
 } from '../cleanup.js';
 import { resumeCommand } from './resume.js';
 import { ProgressDisplay } from '../progress-display.js';
-import type { AnalyzedIssue, LocalWorkFile } from '../../types.js';
+import type { LocalWorkFile, GitHubIssue } from '../../types.js';
 
 interface RunOptions {
   issue?: string;
@@ -109,8 +109,8 @@ async function runLocalMode(options: RunOptions): Promise<void> {
       process.exit(1);
     }
 
-    // Convert local items to AnalyzedIssue format
-    const analyzedIssues: AnalyzedIssue[] = workFile.items.map(item => ({
+    // Convert local items to GitHubIssue format for analysis
+    const issues: GitHubIssue[] = workFile.items.map(item => ({
       number: item.id,
       title: item.title,
       body: item.body,
@@ -118,12 +118,15 @@ async function runLocalMode(options: RunOptions): Promise<void> {
       labels: [],
       url: '',
       htmlUrl: '',
-      affectedPaths: item.affectedPaths || [],
-      dependencies: item.dependencies || [],
-      analyzedAt: new Date().toISOString(),
     }));
 
-    spinner.succeed(`Loaded ${analyzedIssues.length} work item(s) from ${filePath}`);
+    spinner.succeed(`Loaded ${issues.length} work item(s) from ${filePath}`);
+
+    // Analyze dependencies
+    console.log(chalk.blue('\n🔍 Analyzing dependencies...'));
+    const issueAnalyzer = new IssueAnalyzer();
+    const analyzedIssues = await issueAnalyzer.analyzeIssues(issues);
+    console.log(chalk.green(`   ✓ Analysis complete`));
 
     // Load config
     const config = await loadConfig();

@@ -95,8 +95,7 @@ Local mode works the same way as GitHub mode, but without GitHub:
     {
       "id": 2,
       "title": "Create calculator",
-      "body": "Create calculator class...\n\n**Depends on #1**",
-      "dependencies": [1]
+      "body": "Create calculator class...\n\n**Depends on #1**"
     }
   ]
 }
@@ -105,8 +104,7 @@ Local mode works the same way as GitHub mode, but without GitHub:
 Each item needs:
 - `id`: Unique numeric identifier
 - `title`: Brief description
-- `body`: Full implementation details (same format as GitHub issues)
-- `dependencies`: (optional) Array of item IDs this depends on
+- `body`: Full implementation details (include `**Depends on #N**` for dependencies)
 
 ## Installation
 
