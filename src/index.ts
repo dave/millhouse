@@ -5,6 +5,7 @@ import { runCommand } from './cli/commands/run.js';
 import { statusCommand } from './cli/commands/status.js';
 import { resumeCommand } from './cli/commands/resume.js';
 import { setupCommand } from './cli/commands/setup.js';
+import { cleanCommand } from './cli/commands/clean.js';
 
 const program = new Command();
 
@@ -41,5 +42,10 @@ program
   .description('Install Claude Code slash commands')
   .option('-g, --global', 'Install to ~/.claude/commands/ instead of ./.claude/commands/')
   .action(setupCommand);
+
+program
+  .command('clean')
+  .description('Clean up leftover worktrees, branches, and state from interrupted runs')
+  .action(cleanCommand);
 
 program.parse();
