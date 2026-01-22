@@ -139,16 +139,13 @@ Create the output file (default `millhouse-work.json`):
     {
       "id": 1,
       "title": "Create math utilities",
-      "body": "Full description with implementation details, testing, and acceptance criteria...",
-      "dependencies": [],
-      "affectedPaths": ["src/utils/math.ts"]
+      "body": "Full description with implementation details, testing, and acceptance criteria..."
     },
     {
       "id": 2,
       "title": "Create calculator",
       "body": "Full description...\n\n**Depends on #1**",
-      "dependencies": [1],
-      "affectedPaths": ["src/calculator.ts"]
+      "dependencies": [1]
     }
   ]
 }
@@ -156,11 +153,12 @@ Create the output file (default `millhouse-work.json`):
 
 ### Work Item Content Requirements
 
-Same as GitHub issues - each item must include:
+Same as GitHub issues - the body should include:
 - Implementation details (file paths, function signatures)
 - Testing & verification instructions
 - Acceptance criteria
-- Dependencies (reference other item IDs)
+
+The `dependencies` array is optional - if omitted, the item has no dependencies.
 
 ### After Creating the File
 

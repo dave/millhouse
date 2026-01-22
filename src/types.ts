@@ -31,8 +31,8 @@ export interface LocalWorkItem {
   id: number;
   title: string;
   body: string;
-  dependencies: number[]; // IDs of items this depends on
-  affectedPaths: string[];
+  dependencies?: number[]; // IDs of items this depends on
+  affectedPaths?: string[];
 }
 
 // =============================================================================
@@ -75,8 +75,8 @@ export function localToWorkItem(item: LocalWorkItem): AnalyzedWorkItem {
     id: item.id,
     title: item.title,
     body: item.body,
-    dependencies: item.dependencies,
-    affectedPaths: item.affectedPaths,
+    dependencies: item.dependencies || [],
+    affectedPaths: item.affectedPaths || [],
     analyzedAt: new Date().toISOString(),
   };
 }

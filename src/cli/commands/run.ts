@@ -118,8 +118,8 @@ async function runLocalMode(options: RunOptions): Promise<void> {
       labels: [],
       url: '',
       htmlUrl: '',
-      affectedPaths: item.affectedPaths,
-      dependencies: item.dependencies,
+      affectedPaths: item.affectedPaths || [],
+      dependencies: item.dependencies || [],
       analyzedAt: new Date().toISOString(),
     }));
 

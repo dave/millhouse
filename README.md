@@ -86,22 +86,17 @@ Local mode works the same way as GitHub mode, but without GitHub:
 {
   "version": 1,
   "name": "Feature name",
-  "description": "Optional description",
-  "createdAt": "2024-01-15T10:00:00Z",
   "items": [
     {
       "id": 1,
       "title": "Create math utilities",
-      "body": "Create `src/utils/math.ts` with add and multiply functions...",
-      "dependencies": [],
-      "affectedPaths": ["src/utils/math.ts"]
+      "body": "Create `src/utils/math.ts` with add and multiply functions..."
     },
     {
       "id": 2,
       "title": "Create calculator",
       "body": "Create calculator class...\n\n**Depends on #1**",
-      "dependencies": [1],
-      "affectedPaths": ["src/calculator.ts"]
+      "dependencies": [1]
     }
   ]
 }
@@ -111,8 +106,7 @@ Each item needs:
 - `id`: Unique numeric identifier
 - `title`: Brief description
 - `body`: Full implementation details (same format as GitHub issues)
-- `dependencies`: Array of item IDs this depends on
-- `affectedPaths`: Files this item will create/modify
+- `dependencies`: (optional) Array of item IDs this depends on
 
 ## Installation
 
