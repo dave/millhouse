@@ -68,7 +68,16 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
       console.log(chalk.yellow(`\nNo new commands to install ${location}`));
     }
 
-    console.log(chalk.gray('\nUsage: In Claude Code, type /millhouse'));
+    console.log(`
+${chalk.bold('Slash commands (in Claude Code):')}
+  /millhouse plan [file]     Refine a plan for parallel execution
+  /millhouse issues [file]   Create GitHub issues from a plan
+  /millhouse status          Show run status
+
+${chalk.bold('Then run from terminal:')}
+  millhouse run --plan       Execute most recent plan
+  millhouse run --issue N    Execute GitHub issues
+`);
   } catch (error) {
     console.error(chalk.red(`Error: ${error instanceof Error ? error.message : error}`));
     process.exit(1);

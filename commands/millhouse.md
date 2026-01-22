@@ -2,40 +2,13 @@
 
 Orchestrate parallel Claude Code instances to implement work items.
 
-## FIRST: Check if $ARGUMENTS is empty
+## Usage
 
-If $ARGUMENTS is empty or blank, respond with ONLY this exact text (no preamble, no questions, no tools):
+Parse $ARGUMENTS to determine the subcommand:
 
-```
-Millhouse - orchestrate parallel Claude Code instances
-
-Slash commands (run inside Claude Code):
-  /millhouse plan [file]     Refine a plan (omit file to use current plan)
-  /millhouse issues [file]   Create GitHub issues (omit file to use latest plan)
-  /millhouse status          Show run status
-
-CLI commands (run from terminal):
-  millhouse run --plan       Execute most recent plan
-  millhouse run --issue N    Execute GitHub issue and dependencies
-  millhouse run --dry-run    Preview without executing
-
-Workflow:
-  1. Use /millhouse plan to prepare your plan
-  2. Exit Claude Code
-  3. Run: millhouse run --plan
-```
-
-Then STOP. Do not ask questions. Do not offer to help. Do not use any tools. Just output that text.
-
----
-
-## If $ARGUMENTS is NOT empty
-
-Parse the subcommand:
-
-- `plan [plan-file]` - See "/millhouse plan" section below
-- `issues [plan-file]` - See "/millhouse issues" section below
-- `status` - Run `millhouse status` and show output
+- `/millhouse plan [plan-file]` - Refine a plan for millhouse execution
+- `/millhouse issues [plan-file]` - Create GitHub issues from a plan
+- `/millhouse status` - Show run status
 
 ---
 
