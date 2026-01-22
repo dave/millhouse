@@ -91,6 +91,20 @@ npm link
 
 ## Usage
 
+### Setup Slash Commands
+
+Install Claude Code slash commands for working with Millhouse:
+
+```bash
+# Install to current project
+millhouse setup
+
+# Install globally (available in all projects)
+millhouse setup --global
+```
+
+This installs the `/plan-to-issues` command which converts a plan into properly formatted GitHub issues.
+
 ### Start a Run
 
 ```bash
