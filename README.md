@@ -14,9 +14,10 @@ When you run `millhouse run --issue 42`, it:
 
 ### 2. Dependency Analysis
 
-Millhouse sends all discovered issues to Claude in a single API call to analyze dependencies. It looks for:
+Millhouse sends all discovered issues to Claude in a single API call to analyze dependencies. It understands:
 - Explicit markers: "Depends on #1", "Blocked by #2", "After #3", "Requires #4"
 - Logical dependencies: If issue B imports from a file that issue A creates
+- Semantic relationships: If issue A "creates math utilities" and issue B "uses the math functions", Claude infers the dependency automatically
 
 Example issue body:
 ```markdown
