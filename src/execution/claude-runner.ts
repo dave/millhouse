@@ -74,6 +74,7 @@ export class ClaudeRunner {
     worktreePath: string
   ): Promise<RunResult> {
     const prompt = await this.buildPrompt(issue, runId);
+    const issueTag = `#${issue.number}`;
 
     try {
       // Get commits before running Claude
@@ -105,7 +106,32 @@ export class ClaudeRunner {
           if (assistantMsg?.content && Array.isArray(assistantMsg.content)) {
             for (const block of assistantMsg.content) {
               if (typeof block === 'object' && block && 'type' in block && block.type === 'text' && 'text' in block) {
-                messages.push(String(block.text));
+                const text = String(block.text);
+                messages.push(text);
+                // Log a preview of what Claude is saying
+                const preview = text.slice(0, 100).replace(/\n/g, ' ');
+                console.log(`   [${issueTag}] ${preview}${text.length > 100 ? '...' : ''}`);
+              } else if (typeof block === 'object' && block && 'type' in block && block.type === 'tool_use') {
+                const toolBlock = block as { name?: string; input?: Record<string, unknown> };
+                const toolName = toolBlock.name || 'unknown';
+                // Log tool usage with relevant details
+                if (toolName === 'Edit' || toolName === 'Write') {
+                  const filePath = toolBlock.input?.file_path as string || '';
+                  const fileName = filePath.split('/').pop() || filePath;
+                  console.log(`   [${issueTag}] 📝 ${toolName}: ${fileName}`);
+                } else if (toolName === 'Read') {
+                  const filePath = toolBlock.input?.file_path as string || '';
+                  const fileName = filePath.split('/').pop() || filePath;
+                  console.log(`   [${issueTag}] 📖 Reading: ${fileName}`);
+                } else if (toolName === 'Bash') {
+                  const cmd = (toolBlock.input?.command as string || '').slice(0, 50);
+                  console.log(`   [${issueTag}] 💻 ${cmd}${cmd.length >= 50 ? '...' : ''}`);
+                } else if (toolName === 'Glob' || toolName === 'Grep') {
+                  const pattern = toolBlock.input?.pattern as string || '';
+                  console.log(`   [${issueTag}] 🔍 ${toolName}: ${pattern}`);
+                } else {
+                  console.log(`   [${issueTag}] 🔧 ${toolName}`);
+                }
               }
             }
           }
