@@ -2,16 +2,11 @@
 
 Orchestrate parallel Claude Code instances to implement work items.
 
-## Usage
+## FIRST: Check if $ARGUMENTS is empty
 
-Parse $ARGUMENTS to determine the subcommand:
+If $ARGUMENTS is empty or blank, respond with ONLY this exact text (no preamble, no questions, no tools):
 
-- `/millhouse plan [plan-file]` - Refine a plan for millhouse execution
-- `/millhouse issues [plan-file]` - Create GitHub issues from a plan
-- `/millhouse status` - Show run status
-
-If no subcommand is given (empty $ARGUMENTS), output EXACTLY this text and nothing else:
-
+```
 Millhouse - orchestrate parallel Claude Code instances
 
 Slash commands (run inside Claude Code):
@@ -28,8 +23,19 @@ Workflow:
   1. Use /millhouse plan to prepare your plan
   2. Exit Claude Code
   3. Run: millhouse run --plan
+```
 
-IMPORTANT: Do not add any preamble like "I'll help you" or "Here are the options". Do not ask "Which subcommand would you like to run?" Just output the usage text above exactly as written and stop.
+Then STOP. Do not ask questions. Do not offer to help. Do not use any tools. Just output that text.
+
+---
+
+## If $ARGUMENTS is NOT empty
+
+Parse the subcommand:
+
+- `plan [plan-file]` - See "/millhouse plan" section below
+- `issues [plan-file]` - See "/millhouse issues" section below
+- `status` - Run `millhouse status` and show output
 
 ---
 
