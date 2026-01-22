@@ -20,6 +20,7 @@ program
   .option('--issues <numbers>', 'Comma-separated list of specific issue numbers')
   .option('-n, --concurrency <number>', 'Number of parallel workers', '3')
   .option('--dry-run', 'Analyze and plan without executing')
+  .option('--dangerously-skip-permissions', 'Skip permission prompts in spawned Claude instances')
   .action(runCommand);
 
 program

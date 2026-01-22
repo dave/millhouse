@@ -16,11 +16,16 @@ interface RunResult {
   output?: string;
 }
 
+interface ClaudeRunnerOptions {
+  dangerouslySkipPermissions?: boolean;
+}
+
 export class ClaudeRunner {
   private promptTemplate: string | null = null;
+  private dangerouslySkipPermissions: boolean;
 
-  constructor(_config: Config) {
-    // Config can be used for future options like maxBudget
+  constructor(_config: Config, options: ClaudeRunnerOptions = {}) {
+    this.dangerouslySkipPermissions = options.dangerouslySkipPermissions ?? false;
   }
 
   /**
@@ -81,12 +86,13 @@ export class ClaudeRunner {
       const commitsBefore = this.getCommitHashes(worktreePath);
 
       // Run Claude using the Agent SDK
+      const permissionMode = this.dangerouslySkipPermissions ? 'bypassPermissions' : 'acceptEdits';
       const iterator = query({
         prompt,
         options: {
           cwd: worktreePath,
           model: 'claude-sonnet-4-20250514',
-          permissionMode: 'acceptEdits',
+          permissionMode,
           maxTurns: 50,
         },
       });

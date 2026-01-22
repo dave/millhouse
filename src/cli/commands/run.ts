@@ -17,6 +17,7 @@ interface RunOptions {
   issues?: string;
   concurrency?: string;
   dryRun?: boolean;
+  dangerouslySkipPermissions?: boolean;
 }
 
 export async function runCommand(options: RunOptions): Promise<void> {
@@ -45,7 +46,9 @@ export async function runCommand(options: RunOptions): Promise<void> {
     const issueAnalyzer = new IssueAnalyzer();
     const graphBuilder = new GraphBuilder();
     const worktreeManager = new WorktreeManager();
-    const claudeRunner = new ClaudeRunner(config);
+    const claudeRunner = new ClaudeRunner(config, {
+      dangerouslySkipPermissions: options.dangerouslySkipPermissions,
+    });
 
     // Create scheduler
     const scheduler = new Scheduler({
