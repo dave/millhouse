@@ -1,3 +1,4 @@
+import chalk from 'chalk';
 import type { GitHubClient } from './client.js';
 import type { GitHubIssue } from '../types.js';
 
@@ -13,9 +14,16 @@ export class IssueDiscoverer {
     const toProcess = new Set(issueNumbers);
     const processed = new Set<number>();
 
+    console.log(chalk.gray(`   Starting with issues: ${issueNumbers.map(n => `#${n}`).join(', ')}`));
+    if (recursive) {
+      console.log(chalk.gray(`   Recursive mode: will follow linked issues`));
+    }
+
     while (toProcess.size > 0) {
       const batch = Array.from(toProcess);
       toProcess.clear();
+
+      console.log(chalk.gray(`   Fetching: ${batch.map(n => `#${n}`).join(', ')}`));
 
       // Fetch issues in parallel
       const issues = await this.client.getIssues(batch);
@@ -26,13 +34,17 @@ export class IssueDiscoverer {
         discovered.set(issue.number, issue);
         processed.add(issue.number);
 
+        console.log(chalk.gray(`   Found #${issue.number}: ${issue.title}`));
+
         // If recursive, find linked issues
         if (recursive && issue.body) {
           const linkedIssues = this.parseLinkedIssues(issue.body);
-          for (const linkedNumber of linkedIssues) {
-            if (!processed.has(linkedNumber) && !discovered.has(linkedNumber)) {
-              toProcess.add(linkedNumber);
-            }
+          const newLinked = linkedIssues.filter(n => !processed.has(n) && !discovered.has(n));
+          if (newLinked.length > 0) {
+            console.log(chalk.gray(`   └─ Links to: ${newLinked.map(n => `#${n}`).join(', ')}`));
+          }
+          for (const linkedNumber of newLinked) {
+            toProcess.add(linkedNumber);
           }
         }
       }

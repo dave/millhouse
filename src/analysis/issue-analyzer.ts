@@ -1,46 +1,66 @@
+import chalk from 'chalk';
 import { query } from '@anthropic-ai/claude-code';
 import type { GitHubIssue, AnalyzedIssue } from '../types.js';
 
-const ANALYSIS_PROMPT = `Analyze this GitHub issue and extract dependency information.
+const BATCH_ANALYSIS_PROMPT = `Analyze these GitHub issues and determine their dependencies and execution order.
 
-Issue #{{number}}: {{title}}
+## Issues to Analyze
 
-{{body}}
+{{issuesList}}
 
 ---
 
-I need you to analyze this issue and respond with ONLY a JSON object (no markdown, no explanation):
-{
-  "affectedPaths": ["src/path/to/file.ts", "src/directory/"],
-  "dependencies": [123, 456]
-}
+## Your Task
+
+Analyze each issue and determine:
+1. **dependencies**: Which issues MUST be completed BEFORE this issue can start
+2. **affectedPaths**: File paths this issue will likely create or modify
+
+Respond with ONLY a JSON array (no markdown, no explanation):
+[
+  {
+    "issueNumber": 1,
+    "dependencies": [],
+    "affectedPaths": ["src/path/to/file.ts"]
+  },
+  {
+    "issueNumber": 2,
+    "dependencies": [1],
+    "affectedPaths": ["src/other/file.ts"]
+  }
+]
 
 Rules:
-- affectedPaths: List file paths or directories this issue likely modifies
-- dependencies: List issue numbers this MUST be completed BEFORE this issue can start
-- Look for explicit "depends on #X", "after #X", or "blocked by #X" mentions
-- Only include dependencies from this list of valid issues: {{validIssues}}
-- If no dependencies, use empty array: []
-- Respond with ONLY the JSON, nothing else`;
+- Look for explicit dependency mentions: "depends on #X", "after #X", "blocked by #X", "requires #X"
+- Also infer logical dependencies (e.g., if issue B imports from a file that issue A creates)
+- Only include dependencies between issues in this list
+- affectedPaths should be specific file paths mentioned or implied
+- Respond with ONLY valid JSON, nothing else`;
 
 export class IssueAnalyzer {
   /**
-   * Analyze a single issue for dependencies and affected paths using Claude Code.
+   * Analyze all issues in a single Claude call to determine dependencies.
    */
-  async analyzeIssue(issue: GitHubIssue, allIssueNumbers: number[]): Promise<AnalyzedIssue> {
-    const prompt = ANALYSIS_PROMPT
-      .replace('{{number}}', String(issue.number))
-      .replace('{{title}}', issue.title)
-      .replace('{{body}}', issue.body || '(No description)')
-      .replace('{{validIssues}}', allIssueNumbers.filter(n => n !== issue.number).join(', ') || 'none');
+  async analyzeIssues(issues: GitHubIssue[]): Promise<AnalyzedIssue[]> {
+    if (issues.length === 0) return [];
+
+    const allIssueNumbers = issues.map(i => i.number);
+
+    // Build the issues list for the prompt
+    const issuesList = issues.map(issue =>
+      `### Issue #${issue.number}: ${issue.title}\n${issue.body || '(No description)'}`
+    ).join('\n\n');
+
+    const prompt = BATCH_ANALYSIS_PROMPT.replace('{{issuesList}}', issuesList);
+
+    console.log(chalk.gray(`   Sending ${issues.length} issues to Claude for analysis...`));
 
     try {
-      // Use Claude Code to analyze the issue
       const iterator = query({
         prompt,
         options: {
           maxTurns: 1,
-          allowedTools: [], // No tools needed, just analysis
+          allowedTools: [],
         },
       });
 
@@ -61,93 +81,122 @@ export class IssueAnalyzer {
         }
       }
 
-      // Parse JSON from response
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      // Parse JSON array from response
+      const jsonMatch = responseText.match(/\[[\s\S]*\]/);
       if (!jsonMatch) {
-        throw new Error('No JSON found in response');
+        throw new Error('No JSON array found in response');
       }
 
-      const parsed = JSON.parse(jsonMatch[0]) as {
-        affectedPaths: string[];
+      const parsed = JSON.parse(jsonMatch[0]) as Array<{
+        issueNumber: number;
         dependencies: number[];
-      };
+        affectedPaths: string[];
+      }>;
 
-      // Filter dependencies to only include issues in our set
-      const validDependencies = (parsed.dependencies || []).filter(d =>
-        allIssueNumbers.includes(d) && d !== issue.number
-      );
+      // Create a map for quick lookup
+      const analysisMap = new Map(parsed.map(p => [p.issueNumber, p]));
 
-      return {
-        ...issue,
-        affectedPaths: parsed.affectedPaths || [],
-        dependencies: validDependencies,
-        analyzedAt: new Date().toISOString(),
-      };
+      // Build analyzed issues
+      const results: AnalyzedIssue[] = issues.map(issue => {
+        const analysis = analysisMap.get(issue.number);
+
+        // Filter dependencies to only include valid issues
+        const validDeps = (analysis?.dependencies || []).filter(d =>
+          allIssueNumbers.includes(d) && d !== issue.number
+        );
+
+        const analyzed: AnalyzedIssue = {
+          ...issue,
+          affectedPaths: analysis?.affectedPaths || [],
+          dependencies: validDeps,
+          analyzedAt: new Date().toISOString(),
+        };
+
+        // Log each issue's analysis
+        const depsStr = validDeps.length > 0
+          ? `depends on ${validDeps.map(d => `#${d}`).join(', ')}`
+          : 'no dependencies';
+        console.log(chalk.gray(`   #${issue.number}: ${depsStr}`));
+
+        return analyzed;
+      });
+
+      return results;
     } catch (error) {
-      // If analysis fails, fall back to text pattern matching
-      console.warn(`Claude analysis failed for #${issue.number}, using text patterns: ${error}`);
+      console.log(chalk.yellow(`   Claude analysis failed, falling back to pattern matching: ${error}`));
+      return this.fallbackAnalysis(issues, allIssueNumbers);
+    }
+  }
+
+  /**
+   * Fallback to pattern matching if Claude analysis fails.
+   */
+  private fallbackAnalysis(issues: GitHubIssue[], allIssueNumbers: number[]): AnalyzedIssue[] {
+    return issues.map(issue => {
+      const deps = this.extractDependencies(issue, allIssueNumbers);
+      const paths = this.extractAffectedPaths(issue);
+
+      const depsStr = deps.length > 0
+        ? `depends on ${deps.map(d => `#${d}`).join(', ')}`
+        : 'no dependencies';
+      console.log(chalk.gray(`   #${issue.number}: ${depsStr} (pattern match)`));
 
       return {
         ...issue,
-        affectedPaths: [],
-        dependencies: this.extractExplicitDependencies(issue, allIssueNumbers),
+        affectedPaths: paths,
+        dependencies: deps,
         analyzedAt: new Date().toISOString(),
       };
-    }
+    });
   }
 
   /**
-   * Analyze multiple issues sequentially (Claude Code sessions are heavyweight).
+   * Extract dependencies using pattern matching.
    */
-  async analyzeIssues(issues: GitHubIssue[]): Promise<AnalyzedIssue[]> {
-    const allIssueNumbers = issues.map(i => i.number);
-    const results: AnalyzedIssue[] = [];
-
-    for (const issue of issues) {
-      const analyzed = await this.analyzeIssue(issue, allIssueNumbers);
-      results.push(analyzed);
-    }
-
-    return results;
-  }
-
-  /**
-   * Extract explicit dependencies from issue body (fallback when Claude fails).
-   */
-  private extractExplicitDependencies(issue: GitHubIssue, validNumbers: number[]): number[] {
+  private extractDependencies(issue: GitHubIssue, validNumbers: number[]): number[] {
     if (!issue.body) return [];
 
     const dependencies = new Set<number>();
+    const body = issue.body;
 
-    // Look for "depends on #X" patterns
-    const dependsPattern = /depends?\s+on\s+#(\d+)/gi;
-    let match: RegExpExecArray | null;
+    const dependencyStatements = [
+      /depends?\s+on\s+([^.\n]+)/gi,
+      /after\s+([^.\n]+)/gi,
+      /blocked\s+by\s+([^.\n]+)/gi,
+      /requires?\s+([^.\n]+)/gi,
+    ];
 
-    while ((match = dependsPattern.exec(issue.body)) !== null) {
-      const num = parseInt(match[1], 10);
-      if (validNumbers.includes(num) && num !== issue.number) {
-        dependencies.add(num);
-      }
-    }
-
-    // Look for "after #X" patterns
-    const afterPattern = /after\s+#(\d+)/gi;
-    while ((match = afterPattern.exec(issue.body)) !== null) {
-      const num = parseInt(match[1], 10);
-      if (validNumbers.includes(num) && num !== issue.number) {
-        dependencies.add(num);
-      }
-    }
-
-    // Look for "blocked by #X" patterns
-    const blockedPattern = /blocked\s+by\s+#(\d+)/gi;
-    while ((match = blockedPattern.exec(issue.body)) !== null) {
-      const num = parseInt(match[1], 10);
-      if (validNumbers.includes(num) && num !== issue.number) {
-        dependencies.add(num);
+    for (const pattern of dependencyStatements) {
+      let match: RegExpExecArray | null;
+      while ((match = pattern.exec(body)) !== null) {
+        const statement = match[1];
+        const issueRefs = statement.matchAll(/#(\d+)/g);
+        for (const ref of issueRefs) {
+          const num = parseInt(ref[1], 10);
+          if (validNumbers.includes(num) && num !== issue.number) {
+            dependencies.add(num);
+          }
+        }
       }
     }
 
     return Array.from(dependencies);
+  }
+
+  /**
+   * Extract affected file paths from issue body.
+   */
+  private extractAffectedPaths(issue: GitHubIssue): string[] {
+    if (!issue.body) return [];
+
+    const paths = new Set<string>();
+    const pathPattern = /`((?:src|lib|app|packages?)\/[^`]+\.[a-z]+)`/gi;
+    let match: RegExpExecArray | null;
+
+    while ((match = pathPattern.exec(issue.body)) !== null) {
+      paths.add(match[1]);
+    }
+
+    return Array.from(paths);
   }
 }

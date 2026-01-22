@@ -72,21 +72,25 @@ export async function runCommand(options: RunOptions): Promise<void> {
     // Discover issues
     console.log(chalk.blue('\n📋 Discovering issues...'));
     const issues = await orchestrator.discoverIssues(issueNumbers, recursive);
-    console.log(chalk.green(`   Found ${issues.length} issue(s)`));
+    console.log(chalk.green(`   ✓ Found ${issues.length} issue(s)`));
 
     // Analyze dependencies
     console.log(chalk.blue('\n🔍 Analyzing dependencies...'));
     const analyzedIssues = await orchestrator.analyzeIssues(issues);
+    console.log(chalk.green(`   ✓ Analysis complete`));
 
     // Build graph
     console.log(chalk.blue('\n🔗 Building dependency graph...'));
     const graph = graphBuilder.build(analyzedIssues);
+    console.log(chalk.green(`   ✓ Graph built`));
 
     // Show execution plan
     console.log(chalk.blue('\n📊 Execution Plan:'));
     const readyIssues = graph.getReady([]);
-    console.log(`   Ready to start: ${readyIssues.map(i => `#${i}`).join(', ')}`);
+    const blockedCount = analyzedIssues.length - readyIssues.length;
     console.log(`   Total issues: ${analyzedIssues.length}`);
+    console.log(`   Ready to start: ${readyIssues.length} (${readyIssues.map(i => `#${i}`).join(', ')})`);
+    console.log(`   Blocked by dependencies: ${blockedCount}`);
     console.log(`   Concurrency: ${concurrency}`);
 
     if (options.dryRun) {
