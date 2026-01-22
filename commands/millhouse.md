@@ -7,7 +7,7 @@ Orchestrate parallel Claude Code instances to implement work items.
 Parse $ARGUMENTS to determine the subcommand:
 
 - `/millhouse issues [plan-file]` - Create GitHub issues from a plan
-- `/millhouse local [plan-file] [output.json]` - Create local work items file from a plan
+- `/millhouse local [plan.md] [output.json]` - Create local work items file from a plan
 - `/millhouse status` - Show run status
 
 ---
@@ -116,8 +116,11 @@ Same as `/millhouse issues` - work items will be implemented by Claude Code inst
 
 ### Instructions
 
-1. Parse arguments: first arg is the plan file (optional), second arg is the output filename (optional, defaults to `millhouse-work.json`)
-2. Read the plan from the file path argument, or ask the user to describe it
+1. Parse arguments by extension:
+   - `.json` file = output filename (default: `millhouse-work.json`)
+   - Any other file = plan file to read from
+   - Examples: `/millhouse local` `/millhouse local plan.md` `/millhouse local output.json` `/millhouse local plan.md output.json`
+2. Read the plan from the plan file, or ask the user to describe it
 3. Break it into discrete, implementable items
 4. For each item, identify dependencies on other items
 5. Create the JSON file with all work items
