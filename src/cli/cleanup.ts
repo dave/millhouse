@@ -3,8 +3,11 @@ import path from 'node:path';
 import { execSync } from 'node:child_process';
 import chalk from 'chalk';
 import type { RunState } from '../types.js';
+import { MILLHOUSE_LABELS } from '../types.js';
+import { GitHubClient } from '../github/client.js';
 
 const MILLHOUSE_DIR = '.millhouse';
+const ALL_LABELS = Object.values(MILLHOUSE_LABELS);
 
 export interface LeftoverState {
   hasLeftovers: boolean;
@@ -83,10 +86,36 @@ export async function detectLeftoverState(basePath: string = process.cwd()): Pro
 }
 
 /**
- * Clean up all millhouse state - worktrees, branches, and run files.
+ * Clean up all millhouse state - worktrees, branches, run files, and labels.
  */
 export async function cleanupAllState(basePath: string = process.cwd()): Promise<void> {
   const millhouseDir = path.join(basePath, MILLHOUSE_DIR);
+
+  // Remove labels from issues in interrupted runs
+  try {
+    const githubClient = new GitHubClient();
+    const runsDir = path.join(millhouseDir, 'runs');
+    const runFiles = await fs.readdir(runsDir).catch(() => []);
+
+    const issueNumbers = new Set<number>();
+    for (const file of runFiles) {
+      if (file.endsWith('.json')) {
+        const content = await fs.readFile(path.join(runsDir, file), 'utf-8');
+        const run = JSON.parse(content) as RunState;
+        for (const issue of run.issues) {
+          issueNumbers.add(issue.number);
+        }
+      }
+    }
+
+    for (const issueNumber of issueNumbers) {
+      for (const label of ALL_LABELS) {
+        await githubClient.removeLabel(issueNumber, label).catch(() => {});
+      }
+    }
+  } catch {
+    // GitHub client might fail if not in a repo, continue with local cleanup
+  }
 
   // Remove all worktree directories
   const worktreesDir = path.join(millhouseDir, 'worktrees');
