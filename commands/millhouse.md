@@ -10,19 +10,28 @@ Parse $ARGUMENTS to determine the subcommand:
 - `/millhouse issues [plan-file]` - Create GitHub issues from a plan
 - `/millhouse status` - Show run status
 
-If no subcommand is given, explain the workflow:
+If no subcommand is given (empty $ARGUMENTS), just output this usage text and stop:
 
-**These slash commands help you prepare work for millhouse.** To actually execute the work, you need to run millhouse from your terminal (not from within Claude Code):
+```
+Millhouse - orchestrate parallel Claude Code instances
 
-```bash
-# Plan mode - run from terminal after using /millhouse plan
-millhouse run --plan
+Slash commands (run inside Claude Code):
+  /millhouse plan [file]     Refine a plan for parallel execution
+  /millhouse issues [file]   Create GitHub issues from a plan
+  /millhouse status          Show run status
 
-# GitHub mode - run from terminal after using /millhouse issues
-millhouse run --issue 5
+CLI commands (run from terminal):
+  millhouse run --plan       Execute most recent plan
+  millhouse run --issue N    Execute GitHub issue and dependencies
+  millhouse run --dry-run    Preview without executing
+
+Workflow:
+  1. Use /millhouse plan to prepare your plan
+  2. Exit Claude Code
+  3. Run: millhouse run --plan
 ```
 
-Ask the user which subcommand they'd like to use, or if they'd like help creating a plan.
+Do not run any commands or ask any questions - just output the usage text above.
 
 ---
 
