@@ -18,23 +18,6 @@ export interface AnalyzedWorkItem extends WorkItem {
   analyzedAt: string;
 }
 
-// Local work items file format
-export interface LocalWorkFile {
-  version: 1;
-  name: string;
-  description?: string;
-  createdAt: string;
-  items: LocalWorkItem[];
-}
-
-export interface LocalWorkItem {
-  id: number;
-  title: string;
-  body: string;
-  // Note: dependencies are analyzed at runtime from the body text
-  // Use "**Depends on #N**" in the body to indicate dependencies
-}
-
 // =============================================================================
 // GitHub-specific types
 // =============================================================================
@@ -66,19 +49,6 @@ export function issueToWorkItem(issue: AnalyzedIssue): AnalyzedWorkItem {
     dependencies: issue.dependencies,
     affectedPaths: issue.affectedPaths,
     analyzedAt: issue.analyzedAt,
-  };
-}
-
-// Convert LocalWorkItem to AnalyzedWorkItem
-// Note: dependencies and affectedPaths are determined by IssueAnalyzer at runtime
-export function localToWorkItem(item: LocalWorkItem): AnalyzedWorkItem {
-  return {
-    id: item.id,
-    title: item.title,
-    body: item.body,
-    dependencies: [], // Filled in by analyzer
-    affectedPaths: [], // Filled in by analyzer
-    analyzedAt: new Date().toISOString(),
   };
 }
 
