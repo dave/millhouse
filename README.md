@@ -7,6 +7,22 @@ Millhouse orchestrates parallel Claude Code instances to automatically implement
 
 In both modes, Millhouse executes work items in parallel where possible, respecting dependency order.
 
+## Quick Start
+
+Use the `/millhouse` slash command within Claude Code to plan and create work items:
+
+```
+/millhouse issues           # Create GitHub issues from your plan
+/millhouse local            # Create a local JSON file instead
+```
+
+Then run from terminal:
+
+```bash
+millhouse run                              # Run GitHub issues
+millhouse run --file millhouse-work.json   # Run local work items
+```
+
 ## How It Works (GitHub Mode)
 
 ### 1. Issue Discovery
