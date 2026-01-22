@@ -19,7 +19,7 @@ program
   .description('Start working on GitHub issues or a plan file')
   .option('-i, --issue <number>', 'Root issue number (recursively includes linked issues)')
   .option('--issues <numbers>', 'Comma-separated list of specific issue numbers')
-  .option('-p, --plan [path]', 'Path to a plan file (omit to use most recent)')
+  .option('-p, --plan [path]', 'Path to a plan file (omit to use latest plan)')
   .option('-n, --concurrency <number>', 'Number of parallel workers', '8')
   .option('-d, --display <mode>', 'Display mode: compact or detailed', 'compact')
   .option('--dry-run', 'Analyze and plan without executing')

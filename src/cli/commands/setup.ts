@@ -70,13 +70,13 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
 
     console.log(`
 ${chalk.bold('Slash commands (in Claude Code):')}
-  /millhouse plan [file]     Refine a plan (omit file to use current plan)
-  /millhouse issues [file]   Create GitHub issues (omit file to use latest plan)
+  /millhouse plan [file]       Refine a plan (omit file to use current plan)
+  /millhouse issues [file]     Create GitHub issues (omit file to use current plan)
 
 ${chalk.bold('Then run from terminal:')}
-  millhouse run --plan       Execute most recent plan
-  millhouse run --issue N    Execute GitHub issues
-  millhouse status           Show run status
+  millhouse run --plan [file]  Execute plan (omit file to use latest plan)
+  millhouse run --issue N      Execute GitHub issues
+  millhouse status             Show run status
 `);
   } catch (error) {
     console.error(chalk.red(`Error: ${error instanceof Error ? error.message : error}`));

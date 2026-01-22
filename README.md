@@ -9,23 +9,24 @@ In both modes, Millhouse executes work items in parallel where possible, respect
 
 ## Quick Start
 
-### Plan Mode (No GitHub Required)
+### Plan Flow (No GitHub Required)
 
 ```
 /millhouse plan             # Refine your plan for millhouse
 ```
 ```bash
-millhouse run --plan plan.md --dry-run   # Preview what will happen
-millhouse run --plan plan.md             # Execute the plan
+millhouse run --plan        # Execute the plan
 ```
 
-### GitHub Mode
+### GitHub Flow
 
 ```
+/millhouse plan             # Refine your plan for millhouse
 /millhouse issues           # Create GitHub issues from your plan
 ```
 ```bash
-millhouse run --issue 5     # Run issue #5 and dependencies
+millhouse run               # Run millhouse with all open issue
+millhouse run --issue 5     # Run millhouse with issue 5 and all linked issues
 ```
 
 ## Slash Commands
@@ -39,11 +40,11 @@ millhouse setup --global  # Install globally
 
 ### /millhouse plan
 
-Refines a rough plan into a millhouse-ready format. Use this before running `millhouse run --plan`.
+Refines a rough plan into a millhouse-ready format. Use this before running `/millhouse issues` or `millhouse run`.
 
 ```
-/millhouse plan                # Describe your plan interactively
-/millhouse plan rough-idea.md  # Refine an existing plan file
+/millhouse plan                # Refine the current plan
+/millhouse plan plan.md        # Refine an existing plan file
 ```
 
 This transforms your plan to have:
@@ -59,13 +60,9 @@ This transforms your plan to have:
 Creates GitHub issues from a plan. Use this for GitHub mode.
 
 ```
-/millhouse issues              # Describe your plan interactively
+/millhouse issues              # Create issues from the current plan
 /millhouse issues plan.md      # Create issues from a plan file
 ```
-
-### /millhouse status
-
-Shows the status of current and past millhouse runs.
 
 ## How It Works
 
@@ -94,13 +91,13 @@ Each work item runs in complete isolation:
 
 ### GitHub Mode vs Plan Mode
 
-| | GitHub Mode | Plan Mode |
-|---|---|---|
-| Input | GitHub issues | Any text/markdown file |
-| Setup | `/millhouse issues` | `/millhouse plan` (optional) |
-| Run | `millhouse run --issue N` | `millhouse run --plan file.md` |
-| Output | Pull request | Changes on local branch |
-| Labels | Auto-managed | N/A |
+| | GitHub Mode                                | Plan Mode                        |
+|---|--------------------------------------------|----------------------------------|
+| Input | GitHub issues                              | Any text/markdown file           |
+| Setup | `/millhouse plan` then `/millhouse issues` | `/millhouse plan` (optional)     |
+| Run | `millhouse run [--issue N]`                | `millhouse run --plan [file.md]` |
+| Output | Pull request                               | Changes on local branch          |
+| Labels | Auto-managed                               | N/A                              |
 
 ## CLI Reference
 
@@ -113,12 +110,12 @@ millhouse run --issue 5          # Run issue #5 and dependencies
 millhouse run --issues 1,2,3     # Run specific issues only
 
 # Plan mode
-millhouse run --plan plan.md     # Run from a plan file
 millhouse run --plan             # Run most recent plan from ~/.claude/plans/
+millhouse run --plan plan.md     # Run from a plan file
 
 # Options
 millhouse run --dry-run          # Preview without executing
-millhouse run -n 4               # Limit to 4 parallel workers (default: 8)
+millhouse run -n 16              # Limit to 4 parallel workers (default: 8)
 millhouse run -d detailed        # Start in detailed view (default: compact)
 millhouse run --dangerously-skip-permissions  # Unattended execution
 ```
