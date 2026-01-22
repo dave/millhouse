@@ -27,7 +27,7 @@ import { ProgressDisplay } from '../progress-display.js';
 interface RunOptions {
   issue?: string;
   issues?: string;
-  plan?: string;
+  plan?: string | true;  // true when --plan given without value
   concurrency?: string;
   dryRun?: boolean;
   dangerouslySkipPermissions?: boolean;
@@ -94,7 +94,43 @@ export async function runCommand(options: RunOptions): Promise<void> {
   }
 }
 
-async function resolvePlanPath(planPath: string): Promise<string> {
+async function findMostRecentPlan(): Promise<string | null> {
+  const plansDir = path.join(os.homedir(), '.claude', 'plans');
+
+  try {
+    const files = await fs.readdir(plansDir);
+    const mdFiles = files.filter(f => f.endsWith('.md'));
+
+    if (mdFiles.length === 0) {
+      return null;
+    }
+
+    // Get stats for all .md files and sort by mtime
+    const fileStats = await Promise.all(
+      mdFiles.map(async (f) => {
+        const fullPath = path.join(plansDir, f);
+        const stat = await fs.stat(fullPath);
+        return { path: fullPath, mtime: stat.mtime };
+      })
+    );
+
+    fileStats.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
+    return fileStats[0].path;
+  } catch {
+    return null;
+  }
+}
+
+async function resolvePlanPath(planPath: string | true): Promise<string> {
+  // If --plan was given without a value, find most recent plan
+  if (planPath === true) {
+    const recentPlan = await findMostRecentPlan();
+    if (!recentPlan) {
+      throw new Error('No plan files found in ~/.claude/plans/');
+    }
+    return recentPlan;
+  }
+
   // First, try the path as given
   try {
     await fs.access(planPath);
