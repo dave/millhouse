@@ -91,6 +91,13 @@ npm link
 
 ## Usage
 
+### Recommended Workflow
+
+1. **Plan with Claude Code:** Describe what you want to build, then use `/millhouse issues` to create GitHub issues
+2. **Run from terminal:** Execute `millhouse run` directly in your terminal for long-running jobs
+
+This split is recommended because Claude Code's Bash tool has a 10-minute timeout, which isn't enough for multi-issue runs that may take hours.
+
 ### Setup Slash Command
 
 Install the `/millhouse` slash command for Claude Code:
@@ -103,36 +110,40 @@ millhouse setup
 millhouse setup --global
 ```
 
-### Using from Claude Code
+### Creating Issues (Claude Code)
 
-Once installed, you can use millhouse directly from Claude Code:
-
-```
-/millhouse issues [plan-file]   # Create GitHub issues from a plan
-/millhouse run --issue 5        # Execute issue #5 and dependencies
-/millhouse status               # Show run status
-```
-
-When running with `--dangerously-skip-permissions`, add the flag to millhouse so spawned Claude instances inherit the same permission level:
+Use `/millhouse issues` within Claude Code to convert a plan into properly formatted GitHub issues:
 
 ```
-/millhouse run --issue 5 --dangerously-skip-permissions
+/millhouse issues              # Describe your plan interactively
+/millhouse issues plan.md      # Create issues from a plan file
 ```
 
-### Start a Run (CLI)
+This is interactive and works well within Claude Code's timeout limits.
+
+### Running Issues (Terminal)
+
+Run millhouse directly from your terminal for execution - especially for overnight or long-running jobs:
 
 ```bash
-# From a root issue (recursively discovers linked issues)
-millhouse run --issue 42
+# Run issue #5 and all its dependencies
+millhouse run --issue 5
 
+# With skipped permissions for unattended execution
+millhouse run --issue 5 --dangerously-skip-permissions
+
+# Dry run to preview the execution plan
+millhouse run --issue 5 --dry-run
+```
+
+### More CLI Options
+
+```bash
 # Specific issues only (no recursive discovery)
-millhouse run --issues 42,43,44
+millhouse run --issues 1,2,3
 
 # Adjust parallelism (default: 3)
-millhouse run --issue 42 -n 5
-
-# Dry run - analyze and plan without executing
-millhouse run --issue 42 --dry-run
+millhouse run --issue 5 -n 5
 ```
 
 ### Check Status
