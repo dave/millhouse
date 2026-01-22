@@ -15,7 +15,7 @@ Implement GitHub issue #{{issue.number}}: {{issue.title}}
 You are an expert software engineer implementing a specific GitHub issue. Follow these steps:
 
 ### 1. Understand the Context
-- Read the issue description carefully
+- Read the issue description carefully, paying close attention to any **acceptance criteria**
 - Explore the relevant code paths mentioned in "Likely Affected Files"
 - Understand the existing patterns and conventions in the codebase
 - If the issue references other issues or PRs, consider their context
@@ -32,10 +32,25 @@ You are an expert software engineer implementing a specific GitHub issue. Follow
 - Add appropriate error handling
 - Update or add tests if the codebase has them
 
-### 4. Test Your Changes
-- Run existing tests to ensure nothing is broken
-- Add new tests for the functionality you're implementing
-- Manually verify the changes work as expected
+### 4. Test and Verify - CRITICAL
+
+**You MUST verify your implementation before completing:**
+
+1. Run all existing tests to ensure nothing is broken
+2. Think deeply about how to fully test the acceptance criteria from the issue
+3. Run any test commands specified in the issue
+4. Verify each acceptance criterion is satisfied
+
+**If any tests fail or acceptance criteria are not met:**
+- Analyze the failure and make corrections
+- Re-run tests and re-verify
+- Repeat until ALL tests pass and ALL acceptance criteria are satisfied
+
+**If you cannot make progress:**
+- If you've made several attempts without progress, or you detect you're in a loop, exit with an error explaining the situation
+- If human input is required to proceed, exit with an error explaining what's needed
+
+**DO NOT REPORT SUCCESS IF ANY TESTS FAIL OR ANY ACCEPTANCE CRITERIA ARE NOT MET.**
 
 ### 5. Commit Your Changes
 - Stage your changes with `git add <files>`
@@ -58,7 +73,7 @@ You are an expert software engineer implementing a specific GitHub issue. Follow
    - If you notice important issues, mention them in your summary
 
 4. **Handle blockers appropriately**
-   - If you encounter a blocking issue, explain what's needed and stop
+   - If you encounter a blocking issue that requires human input, exit with an error
    - Don't try to work around fundamental problems
 
 5. **Keep changes minimal**
@@ -91,6 +106,6 @@ git diff
 Provide a summary that includes:
 1. What you changed and why
 2. Any important implementation decisions
-3. How to test the changes
+3. Test results and verification of acceptance criteria
 4. Any notes for reviewers
 5. Any potential concerns or follow-up items

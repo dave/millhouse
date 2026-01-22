@@ -236,16 +236,22 @@ Implement GitHub issue #{{issue.number}}: {{issue.title}}
 
 ## Instructions
 
-1. **Understand**: Read the relevant code and understand the context
+1. **Understand**: Read the issue carefully, especially any **acceptance criteria**
 2. **Implement**: Make the necessary changes to resolve this issue
-3. **Test**: Run existing tests and add new tests if appropriate
+3. **Test and Verify - CRITICAL**:
+   - Run all existing tests to ensure nothing is broken
+   - Think deeply about how to test the acceptance criteria
+   - Run any test commands specified in the issue
+   - If tests fail or acceptance criteria aren't met, fix and repeat
+   - If stuck in a loop or need human input, exit with an error
+   - **DO NOT SUCCEED IF TESTS FAIL OR ACCEPTANCE CRITERIA ARE NOT MET**
 4. **Commit**: Create meaningful commits with clear messages
    - Include "Fixes #{{issue.number}}" in the final commit message
 
 ## Important Rules
 - You are working in a git worktree on branch \`millhouse/run-{{runId}}\`
 - Do NOT create a pull request - the orchestrator handles that
-- If you encounter blocking issues, explain what's needed and stop
+- If you encounter blocking issues that need human input, exit with an error
 - Your changes will be merged with other parallel tasks
 - Focus only on this issue - don't fix unrelated problems
 - Keep changes minimal and focused
@@ -256,5 +262,5 @@ Implement GitHub issue #{{issue.number}}: {{issue.title}}
 - Do NOT use \`git push\` - the orchestrator handles that
 
 ## When You're Done
-Summarize what you changed and any important notes for reviewers.
+Summarize what you changed, test results, and verification of acceptance criteria.
 `;
