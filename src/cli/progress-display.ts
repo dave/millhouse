@@ -1,5 +1,4 @@
 import chalk from 'chalk';
-import readline from 'node:readline';
 import type { AnalyzedIssue } from '../types.js';
 
 export type IssueState = 'queued' | 'blocked' | 'running' | 'completed' | 'failed';
@@ -63,8 +62,8 @@ export class ProgressDisplay {
 
     // Enable raw mode for keyboard input
     if (process.stdin.isTTY) {
-      readline.emitKeypressEvents(process.stdin);
       process.stdin.setRawMode(true);
+      process.stdin.resume();
 
       this.keyHandler = (key: Buffer) => {
         const char = key.toString();
@@ -99,11 +98,12 @@ export class ProgressDisplay {
     this.isRunning = false;
 
     if (process.stdin.isTTY) {
-      process.stdin.setRawMode(false);
       if (this.keyHandler) {
         process.stdin.removeListener('data', this.keyHandler);
         this.keyHandler = null;
       }
+      process.stdin.setRawMode(false);
+      process.stdin.pause();
     }
 
     // Clear and render final state
