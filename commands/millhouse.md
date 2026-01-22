@@ -31,6 +31,7 @@ These issues will be implemented by Claude Code instances running **unattended i
 3. For each issue, identify dependencies on other issues
 4. Create issues in order using `gh issue create`, starting with issues that have no dependencies
 5. Use the actual issue numbers returned by GitHub for dependency references
+6. After creating all issues, create an **index issue** that lists them all (see below)
 
 ### Issue Content Requirements
 
@@ -73,6 +74,35 @@ Run `npx tsc --noEmit` to verify no type errors.
 - [ ] Both functions are exported
 - [ ] TypeScript compiles without errors
 ```
+
+### Index Issue
+
+After creating all implementation issues, create a final **index issue** that serves as an overview. Title it something like "Implement [feature name]" and include:
+
+- A one-line summary of the overall goal
+- A list of all created issues with their numbers and a brief description
+- The command to run: `millhouse run --issue <index-number>`
+
+Example:
+
+```markdown
+Implement a calculator library with math utilities.
+
+## Issues
+
+- #1 Create math utilities (`src/utils/math.ts`)
+- #2 Create string helpers (`src/utils/string.ts`)
+- #3 Create calculator class (`src/calculator.ts`)
+- #4 Create main entry point (`src/index.ts`)
+
+## Run
+
+\`\`\`bash
+millhouse run --issue <this-issue-number>
+\`\`\`
+```
+
+The index issue should **not** include detailed dependency information—Millhouse will discover dependencies from the individual issues.
 
 ---
 
