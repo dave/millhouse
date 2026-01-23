@@ -27,8 +27,8 @@ export class ProgressDisplay {
   private keyHandler: ((key: Buffer) => void) | null = null;
   private isRunning = false;
   private logHistory: Array<{ issueNumber: number; message: string }> = [];
-  private isRendering = false;
-  private pendingRender = false;
+  private renderTimeout: NodeJS.Timeout | null = null;
+  private renderScheduled = false;
 
   constructor(options?: { displayMode?: 'compact' | 'detailed' }) {
     if (options?.displayMode === 'detailed') {
@@ -128,6 +128,12 @@ export class ProgressDisplay {
    */
   stop(): void {
     this.isRunning = false;
+
+    // Clear any pending render
+    if (this.renderTimeout) {
+      clearTimeout(this.renderTimeout);
+      this.renderTimeout = null;
+    }
 
     if (process.stdin.isTTY) {
       if (this.keyHandler) {
@@ -241,7 +247,7 @@ export class ProgressDisplay {
     }
 
     if (this.compactMode && this.isRunning) {
-      this.render();
+      this.scheduleRender();
     } else if (!this.compactMode && this.isRunning) {
       this.renderDetailedEvent(event);
     }
@@ -263,7 +269,7 @@ export class ProgressDisplay {
     if (issue) {
       issue.latestMessage = this.truncateMessage(message);
       if (this.compactMode && this.isRunning) {
-        this.render();
+        this.scheduleRender();
       }
     }
   }
@@ -290,62 +296,75 @@ export class ProgressDisplay {
   }
 
   /**
-   * Render the compact view.
-   * Uses a single atomic write with embedded escape codes to prevent interleaving issues.
+   * Schedule a render. Throttled to prevent overwhelming the terminal.
+   */
+  private scheduleRender(): void {
+    if (this.renderScheduled) return;
+    this.renderScheduled = true;
+
+    // Use setImmediate for first render, then throttle subsequent renders
+    if (this.renderTimeout) {
+      clearTimeout(this.renderTimeout);
+    }
+
+    this.renderTimeout = setTimeout(() => {
+      this.renderScheduled = false;
+      this.renderTimeout = null;
+      this.doRender();
+    }, 50); // 50ms throttle
+  }
+
+  /**
+   * Actually render the compact view.
+   */
+  private doRender(): void {
+    // Build the complete output with clear codes in a single string
+    let output = '';
+
+    // Clear previous render if we have one
+    if (this.lastRenderLines > 0) {
+      // Move to start of line
+      output += '\r';
+      // Move cursor up to start of render area
+      output += `\x1B[${this.lastRenderLines}A`;
+      // Clear from cursor to end of screen
+      output += '\x1B[J';
+    }
+
+    // Build the new content
+    const lines: string[] = [];
+
+    for (const issueNumber of this.issueOrder) {
+      const issue = this.issues.get(issueNumber);
+      if (!issue) continue;
+
+      const stateIcon = this.getStateIcon(issue.state);
+      const stateColor = this.getStateColor(issue.state);
+      const titleShort = issue.title.length > 30
+        ? issue.title.slice(0, 27) + '...'
+        : issue.title;
+
+      const line = `${stateIcon} ${stateColor(`#${issue.number}`)} ${chalk.gray(titleShort)} ${chalk.dim('│')} ${issue.latestMessage}`;
+      lines.push(line);
+    }
+
+    output += lines.join('\n') + '\n';
+
+    // Single atomic write
+    process.stdout.write(output);
+    this.lastRenderLines = lines.length;
+  }
+
+  /**
+   * Render immediately (used for initial render and final render).
    */
   private render(): void {
-    // Prevent re-entrant renders
-    if (this.isRendering) {
-      this.pendingRender = true;
-      return;
+    if (this.renderTimeout) {
+      clearTimeout(this.renderTimeout);
+      this.renderTimeout = null;
     }
-    this.isRendering = true;
-
-    try {
-      // Build the complete output with clear codes in a single string
-      let output = '';
-
-      // Clear previous render if we have one
-      if (this.lastRenderLines > 0) {
-        // Move to start of line
-        output += '\r';
-        // Move cursor up to start of render area
-        output += `\x1B[${this.lastRenderLines}A`;
-        // Clear from cursor to end of screen
-        output += '\x1B[J';
-      }
-
-      // Build the new content
-      const lines: string[] = [];
-
-      for (const issueNumber of this.issueOrder) {
-        const issue = this.issues.get(issueNumber);
-        if (!issue) continue;
-
-        const stateIcon = this.getStateIcon(issue.state);
-        const stateColor = this.getStateColor(issue.state);
-        const titleShort = issue.title.length > 30
-          ? issue.title.slice(0, 27) + '...'
-          : issue.title;
-
-        const line = `${stateIcon} ${stateColor(`#${issue.number}`)} ${chalk.gray(titleShort)} ${chalk.dim('│')} ${issue.latestMessage}`;
-        lines.push(line);
-      }
-
-      output += lines.join('\n') + '\n';
-
-      // Single atomic write
-      process.stdout.write(output);
-      this.lastRenderLines = lines.length;
-    } finally {
-      this.isRendering = false;
-
-      // If a render was requested while we were rendering, do it now
-      if (this.pendingRender) {
-        this.pendingRender = false;
-        this.render();
-      }
-    }
+    this.renderScheduled = false;
+    this.doRender();
   }
 
   /**
