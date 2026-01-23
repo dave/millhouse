@@ -52,7 +52,6 @@ export class Orchestrator {
   private originalBranch: string | null = null;
   private shouldScanProject: boolean;
   private dangerouslySkipPermissions: boolean;
-  private projectSummary: string | null = null;
 
   constructor(options: OrchestratorOptions) {
     this.config = options.config;
@@ -131,7 +130,7 @@ export class Orchestrator {
     // Save original branch to restore later
     this.originalBranch = await this.worktreeManager.getCurrentBranch();
 
-    // Check for existing CLAUDE.md or scan project
+    // Check for existing CLAUDE.md or run /init
     if (this.shouldScanProject) {
       const claudeMdPath = path.join(process.cwd(), 'CLAUDE.md');
       try {
@@ -139,8 +138,8 @@ export class Orchestrator {
         // CLAUDE.md exists - workers will pick it up automatically from worktree
         console.log(chalk.blue('\n📂 Using existing CLAUDE.md for project context'));
       } catch {
-        // No CLAUDE.md - run project scan
-        console.log(chalk.blue('\n📂 No CLAUDE.md found, scanning project structure...'));
+        // No CLAUDE.md - run /init to create one
+        console.log(chalk.blue('\n📂 No CLAUDE.md found, running /init...'));
         const scanResult = await scanProject(process.cwd(), {
           dangerouslySkipPermissions: this.dangerouslySkipPermissions,
           onLog: (message) => {
@@ -148,12 +147,11 @@ export class Orchestrator {
           },
         });
 
-        if (scanResult.success && scanResult.summary) {
-          this.projectSummary = scanResult.summary;
-          console.log(chalk.green('   ✓ Project summary generated'));
+        if (scanResult.success) {
+          console.log(chalk.green('   ✓ CLAUDE.md created'));
         } else {
-          console.log(chalk.yellow(`   ⚠ Project scan failed: ${scanResult.error}`));
-          // Continue without summary - it's not critical
+          console.log(chalk.yellow(`   ⚠ /init failed: ${scanResult.error}`));
+          // Continue without - it's not critical
         }
       }
     }
@@ -303,12 +301,6 @@ export class Orchestrator {
           runBranch
         );
         await this.store.saveWorktree(worktree);
-
-        // Copy project summary if available
-        if (this.projectSummary) {
-          const projectSummaryPath = path.join(worktree.path, 'MILLHOUSE_PROJECT.md');
-          await fs.writeFile(projectSummaryPath, this.projectSummary);
-        }
 
         // Check for prior work from dependencies
         const dependencies = this.graph!.getDependencies(issueNumber);
