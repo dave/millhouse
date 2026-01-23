@@ -282,12 +282,11 @@ export class ProgressDisplay {
    */
   private clearLines(): void {
     if (this.lastRenderLines > 0) {
-      // Move cursor up and clear each line
+      // Move cursor up to start of render area
       process.stdout.write(`\x1B[${this.lastRenderLines}A`);
-      for (let i = 0; i < this.lastRenderLines; i++) {
-        process.stdout.write('\x1B[2K\n');
-      }
-      process.stdout.write(`\x1B[${this.lastRenderLines}A`);
+      // Clear from cursor to end of screen - this handles any extra lines
+      // that may have accumulated from unexpected output
+      process.stdout.write('\x1B[J');
     }
   }
 
