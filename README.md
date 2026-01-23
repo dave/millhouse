@@ -1,8 +1,8 @@
 # Millhouse
 
 <div>
-  <a href="https://www.reddit.com/r/simpsonsshitposting/s/ZB5cDcwnqU"><img src="millhouse.jpg" alt="Millhouse"></a>
-  <p align="right"><sub>Unedited artwork by <a href="https://www.shlives.net/">shlives</a></sub></p>
+  <img src="millhouse.jpg" alt="Millhouse">
+  <p align="right"><sub><a href="https://www.reddit.com/r/simpsonsshitposting/s/ZB5cDcwnqU">Unedited artwork</a> by <a href="https://www.shlives.net/">shlives</a></sub></p>
 </div>
 
 Millhouse orchestrates parallel Claude Code instances to automatically implement work items. It supports two modes:
