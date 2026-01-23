@@ -331,6 +331,9 @@ export class ProgressDisplay {
       output += '\x1B[J';
     }
 
+    // Get terminal width for truncation (default to 80 if unavailable)
+    const termWidth = process.stdout.columns || 80;
+
     // Build the new content
     const lines: string[] = [];
 
@@ -344,7 +347,16 @@ export class ProgressDisplay {
         ? issue.title.slice(0, 27) + '...'
         : issue.title;
 
-      const line = `${stateIcon} ${stateColor(`#${issue.number}`)} ${chalk.gray(titleShort)} ${chalk.dim('│')} ${issue.latestMessage}`;
+      // Calculate available space for message
+      // Format: "● #N Title... │ Message"
+      // Icon(1) + space(1) + #N(~4) + space(1) + title(30) + space+│+space(3) = ~40 chars prefix
+      const prefixLen = 40;
+      const maxMessageLen = Math.max(10, termWidth - prefixLen);
+      const messageTrunc = issue.latestMessage.length > maxMessageLen
+        ? issue.latestMessage.slice(0, maxMessageLen - 3) + '...'
+        : issue.latestMessage;
+
+      const line = `${stateIcon} ${stateColor(`#${issue.number}`)} ${chalk.gray(titleShort)} ${chalk.dim('│')} ${messageTrunc}`;
       lines.push(line);
     }
 
