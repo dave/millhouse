@@ -280,30 +280,18 @@ export class ProgressDisplay {
   }
 
   /**
-   * Clear previously rendered lines.
+   * Clear previously rendered lines (used when switching modes).
    */
   private clearLines(): void {
     if (this.lastRenderLines > 0) {
-      // Move to start of line, then up to start of render area
-      process.stdout.write('\r');
-      process.stdout.write(`\x1B[${this.lastRenderLines}A`);
-      // Clear each line individually (more compatible than \x1B[J)
-      for (let i = 0; i < this.lastRenderLines; i++) {
-        process.stdout.write('\x1B[2K');  // Clear entire line
-        if (i < this.lastRenderLines - 1) {
-          process.stdout.write('\x1B[1B'); // Move down one line
-        }
-      }
-      // Move back up to start
-      if (this.lastRenderLines > 1) {
-        process.stdout.write(`\x1B[${this.lastRenderLines - 1}A`);
-      }
-      process.stdout.write('\r');
+      process.stdout.write(`\r\x1B[${this.lastRenderLines}A\x1B[J`);
+      this.lastRenderLines = 0;
     }
   }
 
   /**
    * Render the compact view.
+   * Uses a single atomic write with embedded escape codes to prevent interleaving issues.
    */
   private render(): void {
     // Prevent re-entrant renders
@@ -314,8 +302,20 @@ export class ProgressDisplay {
     this.isRendering = true;
 
     try {
-      this.clearLines();
+      // Build the complete output with clear codes in a single string
+      let output = '';
 
+      // Clear previous render if we have one
+      if (this.lastRenderLines > 0) {
+        // Move to start of line
+        output += '\r';
+        // Move cursor up to start of render area
+        output += `\x1B[${this.lastRenderLines}A`;
+        // Clear from cursor to end of screen
+        output += '\x1B[J';
+      }
+
+      // Build the new content
       const lines: string[] = [];
 
       for (const issueNumber of this.issueOrder) {
@@ -332,7 +332,9 @@ export class ProgressDisplay {
         lines.push(line);
       }
 
-      const output = lines.join('\n') + '\n';
+      output += lines.join('\n') + '\n';
+
+      // Single atomic write
       process.stdout.write(output);
       this.lastRenderLines = lines.length;
     } finally {
