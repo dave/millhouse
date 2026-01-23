@@ -4,8 +4,8 @@
 
 Millhouse orchestrates parallel Claude Code instances to automatically implement work items. It supports two modes:
 
-- **GitHub Mode:** Point it at GitHub issues and it discovers related issues, analyzes dependencies, executes in parallel where possible and creates a PR with all changes.
-- **Plan Mode:** Give it any plan file (markdown, text) and it breaks it into work items automatically, analyzes dependencies and executes in parallel where possible.
+- **GitHub Mode:** Point it at GitHub issues and it discovers related issues, analyzes dependencies, executes and creates a PR with all changes.
+- **Plan Mode:** Give it any plan file (markdown, text) and it breaks it into work items automatically, analyzes dependencies and executes.
 
 In both modes, Millhouse executes work items in parallel where possible, respecting dependency order.
 
