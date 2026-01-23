@@ -28,6 +28,7 @@ interface RunOptions {
   concurrency?: string;
   display?: 'compact' | 'detailed';
   dryRun?: boolean;
+  scan?: boolean;
   dangerouslySkipPermissions?: boolean;
 }
 
@@ -245,6 +246,8 @@ export async function runPlanCommand(plan: string | undefined, options: RunOptio
       claudeRunner,
       scheduler,
       progressDisplay,
+      scanProject: options.scan !== false && !options.dryRun,
+      dangerouslySkipPermissions: options.dangerouslySkipPermissions,
     });
 
     // Build graph
@@ -359,6 +362,8 @@ export async function runIssuesCommand(numbers: string | undefined, options: Run
       claudeRunner,
       scheduler,
       progressDisplay,
+      scanProject: options.scan !== false && !options.dryRun,
+      dangerouslySkipPermissions: options.dangerouslySkipPermissions,
     });
 
     // Discover issues (always recursive to find linked issues)

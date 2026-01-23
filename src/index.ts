@@ -22,6 +22,8 @@ const runCmd = program
   .option('-n, --concurrency <number>', 'Number of parallel workers', '8')
   .option('-d, --display <mode>', 'Display mode: compact or detailed', 'compact')
   .option('--dry-run', 'Analyze and plan without executing')
+  .option('--scan', 'Scan project and generate summary before running (default: true)', true)
+  .option('--no-scan', 'Skip project scanning')
   .option('--dangerously-skip-permissions', 'Skip permission prompts in spawned Claude instances')
   .action(runPlanCommand);
 
@@ -33,6 +35,8 @@ runCmd
   .option('-n, --concurrency <number>', 'Number of parallel workers', '8')
   .option('-d, --display <mode>', 'Display mode: compact or detailed', 'compact')
   .option('--dry-run', 'Analyze and plan without executing')
+  .option('--scan', 'Scan project and generate summary before running (default: true)', true)
+  .option('--no-scan', 'Skip project scanning')
   .option('--dangerously-skip-permissions', 'Skip permission prompts in spawned Claude instances')
   .action(runIssuesCommand);
 

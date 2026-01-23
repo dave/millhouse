@@ -12,6 +12,7 @@ import type { WorktreeManager } from '../execution/worktree-manager.js';
 import type { ClaudeRunner } from '../execution/claude-runner.js';
 import type { Scheduler } from './scheduler.js';
 import type { ProgressDisplay } from '../cli/progress-display.js';
+import { scanProject } from '../execution/project-scanner.js';
 
 interface OrchestratorOptions {
   config: Config;
@@ -26,6 +27,9 @@ interface OrchestratorOptions {
   issueDiscoverer?: IssueDiscoverer;
   issueAnalyzer?: IssueAnalyzer;
   progressDisplay?: ProgressDisplay;
+  // Project scanning options
+  scanProject?: boolean;
+  dangerouslySkipPermissions?: boolean;
 }
 
 export class Orchestrator {
@@ -46,6 +50,9 @@ export class Orchestrator {
   private graph: DependencyGraph | null = null;
   private isShuttingDown = false;
   private originalBranch: string | null = null;
+  private shouldScanProject: boolean;
+  private dangerouslySkipPermissions: boolean;
+  private projectSummary: string | null = null;
 
   constructor(options: OrchestratorOptions) {
     this.config = options.config;
@@ -60,6 +67,9 @@ export class Orchestrator {
     this.issueDiscoverer = options.issueDiscoverer;
     this.issueAnalyzer = options.issueAnalyzer;
     this.progressDisplay = options.progressDisplay;
+    // Project scanning
+    this.shouldScanProject = options.scanProject ?? true;
+    this.dangerouslySkipPermissions = options.dangerouslySkipPermissions ?? false;
 
     // Handle graceful shutdown
     this.setupShutdownHandlers();
@@ -120,6 +130,22 @@ export class Orchestrator {
   async run(analyzedIssues: AnalyzedIssue[]): Promise<RunState> {
     // Save original branch to restore later
     this.originalBranch = await this.worktreeManager.getCurrentBranch();
+
+    // Scan project if enabled
+    if (this.shouldScanProject) {
+      console.log(chalk.blue('   Scanning project structure...'));
+      const scanResult = await scanProject(process.cwd(), {
+        dangerouslySkipPermissions: this.dangerouslySkipPermissions,
+      });
+
+      if (scanResult.success && scanResult.summary) {
+        this.projectSummary = scanResult.summary;
+        console.log(chalk.green('   ✓ Project summary generated'));
+      } else {
+        console.log(chalk.yellow(`   ⚠ Project scan failed: ${scanResult.error}`));
+        // Continue without summary - it's not critical
+      }
+    }
 
     // Create run state
     const runId = this.store.generateRunId();
@@ -266,6 +292,12 @@ export class Orchestrator {
           runBranch
         );
         await this.store.saveWorktree(worktree);
+
+        // Copy project summary if available
+        if (this.projectSummary) {
+          const projectSummaryPath = path.join(worktree.path, 'MILLHOUSE_PROJECT.md');
+          await fs.writeFile(projectSummaryPath, this.projectSummary);
+        }
 
         // Check for prior work from dependencies
         const dependencies = this.graph!.getDependencies(issueNumber);

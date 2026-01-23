@@ -9,6 +9,10 @@ Implement GitHub issue #{{issue.number}}: {{issue.title}}
 ## Likely Affected Files
 
 {{affectedPaths}}
+
+## Project Context
+
+A summary of the project structure is available in `MILLHOUSE_PROJECT.md` in the repository root. **Read this file first** to understand the codebase architecture, conventions, and where different types of code belong.
 {{#if hasPriorWork}}
 
 ## Prior Work

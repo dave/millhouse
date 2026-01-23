@@ -58,9 +58,9 @@ export class ClaudeRunner {
       }
     }
 
-    // Fall back to default template
-    this.promptTemplate = DEFAULT_PROMPT_TEMPLATE;
-    return this.promptTemplate;
+    throw new Error(
+      `Could not find implementation.prompt.md template. Searched: ${templatePaths.join(', ')}`
+    );
   }
 
   /**
@@ -246,70 +246,3 @@ export class ClaudeRunner {
     }
   }
 }
-
-const DEFAULT_PROMPT_TEMPLATE = `# Your Task
-
-Implement GitHub issue #{{issue.number}}: {{issue.title}}
-
-## Issue Description
-{{issue.body}}
-
-## Likely Affected Files
-{{affectedPaths}}
-{{#if hasPriorWork}}
-
-## Prior Work
-
-This task depends on work that has already been completed. Summaries of that prior work are available in \`MILLHOUSE_PRIOR_WORK.md\` in the repository root. **Read this file first** to understand what has already been implemented before starting your work.
-{{/if}}
-
-## Instructions
-
-1. **Understand**: Read the issue carefully, especially any **acceptance criteria**
-2. **Implement**: Make the necessary changes to resolve this issue
-3. **Test and Verify - CRITICAL**:
-   - Run all existing tests to ensure nothing is broken
-   - Think deeply about how to test the acceptance criteria
-   - Run any test commands specified in the issue
-   - If tests fail or acceptance criteria aren't met, fix and repeat
-   - If stuck in a loop or need human input, exit with an error
-   - **DO NOT SUCCEED IF TESTS FAIL OR ACCEPTANCE CRITERIA ARE NOT MET**
-4. **Commit**: Create a single commit with a comprehensive message:
-   - Summary line describing the change
-   - Body with: what was implemented, files changed, how acceptance criteria were met
-   - End with "Fixes #{{issue.number}}"
-
-## Important Rules
-- You are working in a git worktree on branch \`millhouse/run-{{runId}}\`
-- Do NOT create a pull request - the orchestrator handles that
-- If you encounter blocking issues that need human input, exit with an error
-- Your changes will be merged with other parallel tasks
-- Focus only on this issue - don't fix unrelated problems
-- Keep changes minimal and focused
-
-## Git Commands
-- Use \`git add <files>\` to stage specific files
-- Use \`git commit -m "message"\` to commit
-- Do NOT use \`git push\` - the orchestrator handles that
-
-## When You're Done
-
-**Create a summary file** called \`MILLHOUSE_SUMMARY.md\` in the repository root:
-
-\`\`\`markdown
-## Summary
-[2-3 sentence description of what was accomplished]
-
-## Files Changed
-- path/to/file1.ts (created|modified|deleted)
-
-## Key Changes
-- [Important change 1]
-- [Important change 2]
-
-## Test Status
-[passed|failed|skipped] - [brief note if relevant]
-\`\`\`
-
-This summary will be passed to any dependent tasks that run after you.
-`;
