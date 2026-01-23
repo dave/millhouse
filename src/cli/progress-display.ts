@@ -27,6 +27,8 @@ export class ProgressDisplay {
   private keyHandler: ((key: Buffer) => void) | null = null;
   private isRunning = false;
   private logHistory: Array<{ issueNumber: number; message: string }> = [];
+  private isRendering = false;
+  private pendingRender = false;
 
   constructor(options?: { displayMode?: 'compact' | 'detailed' }) {
     if (options?.displayMode === 'detailed') {
@@ -282,11 +284,21 @@ export class ProgressDisplay {
    */
   private clearLines(): void {
     if (this.lastRenderLines > 0) {
-      // Move cursor up to start of render area
+      // Move to start of line, then up to start of render area
+      process.stdout.write('\r');
       process.stdout.write(`\x1B[${this.lastRenderLines}A`);
-      // Clear from cursor to end of screen - this handles any extra lines
-      // that may have accumulated from unexpected output
-      process.stdout.write('\x1B[J');
+      // Clear each line individually (more compatible than \x1B[J)
+      for (let i = 0; i < this.lastRenderLines; i++) {
+        process.stdout.write('\x1B[2K');  // Clear entire line
+        if (i < this.lastRenderLines - 1) {
+          process.stdout.write('\x1B[1B'); // Move down one line
+        }
+      }
+      // Move back up to start
+      if (this.lastRenderLines > 1) {
+        process.stdout.write(`\x1B[${this.lastRenderLines - 1}A`);
+      }
+      process.stdout.write('\r');
     }
   }
 
@@ -294,27 +306,44 @@ export class ProgressDisplay {
    * Render the compact view.
    */
   private render(): void {
-    this.clearLines();
-
-    const lines: string[] = [];
-
-    for (const issueNumber of this.issueOrder) {
-      const issue = this.issues.get(issueNumber);
-      if (!issue) continue;
-
-      const stateIcon = this.getStateIcon(issue.state);
-      const stateColor = this.getStateColor(issue.state);
-      const titleShort = issue.title.length > 30
-        ? issue.title.slice(0, 27) + '...'
-        : issue.title;
-
-      const line = `${stateIcon} ${stateColor(`#${issue.number}`)} ${chalk.gray(titleShort)} ${chalk.dim('│')} ${issue.latestMessage}`;
-      lines.push(line);
+    // Prevent re-entrant renders
+    if (this.isRendering) {
+      this.pendingRender = true;
+      return;
     }
+    this.isRendering = true;
 
-    const output = lines.join('\n') + '\n';
-    process.stdout.write(output);
-    this.lastRenderLines = lines.length;
+    try {
+      this.clearLines();
+
+      const lines: string[] = [];
+
+      for (const issueNumber of this.issueOrder) {
+        const issue = this.issues.get(issueNumber);
+        if (!issue) continue;
+
+        const stateIcon = this.getStateIcon(issue.state);
+        const stateColor = this.getStateColor(issue.state);
+        const titleShort = issue.title.length > 30
+          ? issue.title.slice(0, 27) + '...'
+          : issue.title;
+
+        const line = `${stateIcon} ${stateColor(`#${issue.number}`)} ${chalk.gray(titleShort)} ${chalk.dim('│')} ${issue.latestMessage}`;
+        lines.push(line);
+      }
+
+      const output = lines.join('\n') + '\n';
+      process.stdout.write(output);
+      this.lastRenderLines = lines.length;
+    } finally {
+      this.isRendering = false;
+
+      // If a render was requested while we were rendering, do it now
+      if (this.pendingRender) {
+        this.pendingRender = false;
+        this.render();
+      }
+    }
   }
 
   /**
