@@ -20,14 +20,13 @@ export class IssueAnalyzer {
     const template = await loadTemplate('issue-analysis.prompt.md');
     const prompt = template.replace('{{issuesList}}', issuesList);
 
-    console.log(chalk.gray(`   Sending ${issues.length} issues to Claude for analysis...`));
+    console.log(chalk.gray(`   Analyzing ${issues.length} issues...`));
 
     try {
       const iterator = query({
         prompt,
         options: {
-          maxTurns: 1,
-          allowedTools: [],
+          maxTurns: 10,
         },
       });
 
@@ -42,6 +41,22 @@ export class IssueAnalyzer {
             for (const block of assistantMsg.content) {
               if (typeof block === 'object' && block && 'type' in block && block.type === 'text' && 'text' in block) {
                 responseText += String(block.text);
+              } else if (typeof block === 'object' && block && 'type' in block && block.type === 'tool_use') {
+                const toolBlock = block as { name?: string; input?: Record<string, unknown> };
+                const toolName = toolBlock.name || 'unknown';
+                if (toolName === 'Read') {
+                  const filePath = toolBlock.input?.file_path as string || '';
+                  const fileName = filePath.split('/').pop() || filePath;
+                  console.log(chalk.gray(`   📖 Reading: ${fileName}`));
+                } else if (toolName === 'Glob' || toolName === 'Grep') {
+                  const pattern = toolBlock.input?.pattern as string || '';
+                  console.log(chalk.gray(`   🔍 ${toolName}: ${pattern}`));
+                } else if (toolName === 'Bash') {
+                  const cmd = (toolBlock.input?.command as string || '').slice(0, 50);
+                  console.log(chalk.gray(`   💻 ${cmd}${cmd.length >= 50 ? '...' : ''}`));
+                } else {
+                  console.log(chalk.gray(`   🔧 ${toolName}`));
+                }
               }
             }
           }

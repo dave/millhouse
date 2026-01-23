@@ -131,22 +131,30 @@ export class Orchestrator {
     // Save original branch to restore later
     this.originalBranch = await this.worktreeManager.getCurrentBranch();
 
-    // Scan project if enabled
+    // Check for existing CLAUDE.md or scan project
     if (this.shouldScanProject) {
-      console.log(chalk.blue('\n📂 Scanning project structure...'));
-      const scanResult = await scanProject(process.cwd(), {
-        dangerouslySkipPermissions: this.dangerouslySkipPermissions,
-        onLog: (message) => {
-          console.log(chalk.gray(`   ${message}`));
-        },
-      });
+      const claudeMdPath = path.join(process.cwd(), 'CLAUDE.md');
+      try {
+        await fs.access(claudeMdPath);
+        // CLAUDE.md exists - workers will pick it up automatically from worktree
+        console.log(chalk.blue('\n📂 Using existing CLAUDE.md for project context'));
+      } catch {
+        // No CLAUDE.md - run project scan
+        console.log(chalk.blue('\n📂 No CLAUDE.md found, scanning project structure...'));
+        const scanResult = await scanProject(process.cwd(), {
+          dangerouslySkipPermissions: this.dangerouslySkipPermissions,
+          onLog: (message) => {
+            console.log(chalk.gray(`   ${message}`));
+          },
+        });
 
-      if (scanResult.success && scanResult.summary) {
-        this.projectSummary = scanResult.summary;
-        console.log(chalk.green('   ✓ Project summary generated'));
-      } else {
-        console.log(chalk.yellow(`   ⚠ Project scan failed: ${scanResult.error}`));
-        // Continue without summary - it's not critical
+        if (scanResult.success && scanResult.summary) {
+          this.projectSummary = scanResult.summary;
+          console.log(chalk.green('   ✓ Project summary generated'));
+        } else {
+          console.log(chalk.yellow(`   ⚠ Project scan failed: ${scanResult.error}`));
+          // Continue without summary - it's not critical
+        }
       }
     }
 

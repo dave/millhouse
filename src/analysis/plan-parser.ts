@@ -1,4 +1,5 @@
 import chalk from 'chalk';
+import ora from 'ora';
 import { query } from '@anthropic-ai/claude-code';
 import type { AnalyzedIssue } from '../types.js';
 import { loadTemplate } from '../utils/template-loader.js';
@@ -11,12 +12,20 @@ export class PlanParser {
     const template = await loadTemplate('plan-analysis.prompt.md');
     const prompt = template.replace('{{plan}}', planContent);
 
-    console.log(chalk.gray('   Sending plan to Claude for analysis...'));
+    const startTime = Date.now();
+    const spinner = ora('Analyzing plan...').start();
+
+    // Update elapsed time every second
+    const timerInterval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      spinner.text = `Analyzing plan... (${elapsed}s)`;
+    }, 1000);
 
     try {
       const iterator = query({
         prompt,
         options: {
+          cwd: process.cwd(),
           maxTurns: 1,
           allowedTools: [],
         },
@@ -39,9 +48,13 @@ export class PlanParser {
         }
       }
 
+      clearInterval(timerInterval);
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+
       // Parse JSON array from response
       const jsonMatch = responseText.match(/\[[\s\S]*\]/);
       if (!jsonMatch) {
+        spinner.fail(`Plan analysis failed (${elapsed}s)`);
         throw new Error('No JSON array found in response');
       }
 
@@ -51,6 +64,8 @@ export class PlanParser {
         body: string;
         dependencies: number[];
       }>;
+
+      spinner.succeed(`Plan analyzed (${parsed.length} work items in ${elapsed}s)`);
 
       const allIds = parsed.map(p => p.id);
 
@@ -82,6 +97,8 @@ export class PlanParser {
 
       return results;
     } catch (error) {
+      clearInterval(timerInterval);
+      spinner.fail('Plan analysis failed');
       throw new Error(`Failed to parse plan: ${error instanceof Error ? error.message : error}`);
     }
   }
