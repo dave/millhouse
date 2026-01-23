@@ -406,8 +406,15 @@ export class Orchestrator {
           this.runState.status = 'failed';
         }
       } else {
-        // Local mode - just mark as completed
-        this.runState.status = 'completed';
+        // Local mode - merge run branch into original branch
+        try {
+          console.log(chalk.blue('   Merging changes into current branch...'));
+          await this.worktreeManager.mergeRunBranch(runBranch, this.originalBranch!);
+          this.runState.status = 'completed';
+        } catch (error) {
+          this.runState.error = error instanceof Error ? error.message : String(error);
+          this.runState.status = 'failed';
+        }
       }
     } else if (failed.length > 0) {
       this.runState.status = 'failed';

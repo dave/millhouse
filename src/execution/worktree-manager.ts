@@ -213,6 +213,18 @@ export class WorktreeManager {
   }
 
   /**
+   * Merge the run branch into the target branch.
+   * Used in local mode to bring changes into the working branch.
+   */
+  async mergeRunBranch(runBranch: string, targetBranch: string): Promise<void> {
+    // Checkout the target branch
+    await execAsync(`git checkout "${targetBranch}"`, { cwd: this.basePath });
+
+    // Merge the run branch
+    await execAsync(`git merge ${runBranch} --no-edit`, { cwd: this.basePath });
+  }
+
+  /**
    * Restore to a specific branch, aborting any in-progress merge.
    */
   async restoreBranch(branchName: string): Promise<void> {
