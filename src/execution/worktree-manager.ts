@@ -139,12 +139,19 @@ export class WorktreeManager {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
 
-      // Check if it's a merge conflict
-      if (errorMessage.includes('CONFLICT') || errorMessage.includes('Merge conflict')) {
-        // Abort the merge
-        await execAsync('git merge --abort', { cwd: this.basePath }).catch(() => {});
-        return { success: false, error: 'Merge conflict detected' };
+      // Always try to abort merge and get status for better error info
+      try {
+        const { stdout: status } = await execAsync('git status --porcelain', { cwd: this.basePath });
+        if (status.includes('UU ') || status.includes('AA ') || status.includes('DD ')) {
+          await execAsync('git merge --abort', { cwd: this.basePath }).catch(() => {});
+          return { success: false, error: 'Merge conflict detected' };
+        }
+      } catch {
+        // Ignore status check errors
       }
+
+      // Try to abort any in-progress merge
+      await execAsync('git merge --abort', { cwd: this.basePath }).catch(() => {});
 
       return { success: false, error: errorMessage };
     }

@@ -62,7 +62,22 @@ You are an expert software engineer implementing a specific task. Follow these s
 
 **DO NOT REPORT SUCCESS IF ANY TESTS FAIL OR ANY ACCEPTANCE CRITERIA ARE NOT MET.**
 
-### 5. Commit Your Changes
+### 5. Merge Latest Changes and Commit
+
+Before committing, merge any changes from parallel workers:
+
+```bash
+# Merge the latest run branch to get changes from other workers
+# (The worktree shares git objects with the main repo, so the branch is available locally)
+git merge millhouse/run-{{runId}} --no-edit || true
+```
+
+**If there are merge conflicts:**
+- Resolve them carefully, preserving both your changes and the other worker's changes
+- Test that everything still works after resolving conflicts
+- Stage the resolved files with `git add`
+
+Then commit your changes:
 - Stage your changes with `git add <files>`
 - Create a single commit with a comprehensive message that includes:
   - A clear summary line describing the change
