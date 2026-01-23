@@ -20,8 +20,8 @@ export async function loadTemplate(templateName: string): Promise<string> {
 
   // Try to load from templates directory
   const templatePaths = [
-    path.join(process.cwd(), 'templates', templateName),
-    path.join(__dirname, '..', '..', 'templates', templateName),
+    path.join(process.cwd(), 'prompts', templateName),
+    path.join(__dirname, '..', '..', 'prompts', templateName),
   ];
 
   for (const templatePath of templatePaths) {

@@ -10,7 +10,7 @@
   "files": [
     "dist",
     "commands",
-    "templates"
+    "prompts"
   ],
   "scripts": {
     "build": "tsc",

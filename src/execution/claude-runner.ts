@@ -45,8 +45,8 @@ export class ClaudeRunner {
 
     // Try to load from templates directory
     const templatePaths = [
-      path.join(process.cwd(), 'templates', 'implementation.prompt.md'),
-      path.join(__dirname, '..', '..', 'templates', 'implementation.prompt.md'),
+      path.join(process.cwd(), 'prompts', 'implementation.prompt.md'),
+      path.join(__dirname, '..', '..', 'prompts', 'implementation.prompt.md'),
     ];
 
     for (const templatePath of templatePaths) {
