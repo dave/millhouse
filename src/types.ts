@@ -70,6 +70,7 @@ export interface Task {
   completedAt?: string;
   error?: string;
   commits?: string[];
+  summary?: string; // Raw markdown content from MILLHOUSE_SUMMARY.md
 }
 
 // Run state persisted to JSON

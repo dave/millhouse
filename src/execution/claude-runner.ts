@@ -66,8 +66,18 @@ export class ClaudeRunner {
   /**
    * Build the prompt for Claude to implement an issue.
    */
-  async buildPrompt(issue: AnalyzedIssue, runId: string): Promise<string> {
-    const template = await this.loadPromptTemplate();
+  async buildPrompt(issue: AnalyzedIssue, runId: string, hasPriorWork: boolean = false): Promise<string> {
+    let template = await this.loadPromptTemplate();
+
+    // Handle conditional sections
+    if (hasPriorWork) {
+      // Keep the content inside {{#if hasPriorWork}}...{{/if}}
+      template = template.replace(/\{\{#if hasPriorWork\}\}/g, '');
+      template = template.replace(/\{\{\/if\}\}/g, '');
+    } else {
+      // Remove the entire {{#if hasPriorWork}}...{{/if}} block
+      template = template.replace(/\{\{#if hasPriorWork\}\}[\s\S]*?\{\{\/if\}\}/g, '');
+    }
 
     return template
       .replace(/\{\{issue\.number\}\}/g, String(issue.number))
@@ -83,9 +93,10 @@ export class ClaudeRunner {
   async run(
     issue: AnalyzedIssue,
     runId: string,
-    worktreePath: string
+    worktreePath: string,
+    hasPriorWork: boolean = false
   ): Promise<RunResult> {
-    const prompt = await this.buildPrompt(issue, runId);
+    const prompt = await this.buildPrompt(issue, runId, hasPriorWork);
 
     try {
       // Get commits before running Claude
@@ -245,6 +256,12 @@ Implement GitHub issue #{{issue.number}}: {{issue.title}}
 
 ## Likely Affected Files
 {{affectedPaths}}
+{{#if hasPriorWork}}
+
+## Prior Work
+
+This task depends on work that has already been completed. Summaries of that prior work are available in \`MILLHOUSE_PRIOR_WORK.md\` in the repository root. **Read this file first** to understand what has already been implemented before starting your work.
+{{/if}}
 
 ## Instructions
 
@@ -276,5 +293,23 @@ Implement GitHub issue #{{issue.number}}: {{issue.title}}
 - Do NOT use \`git push\` - the orchestrator handles that
 
 ## When You're Done
-Summarize what you changed, test results, and verification of acceptance criteria.
+
+**Create a summary file** called \`MILLHOUSE_SUMMARY.md\` in the repository root:
+
+\`\`\`markdown
+## Summary
+[2-3 sentence description of what was accomplished]
+
+## Files Changed
+- path/to/file1.ts (created|modified|deleted)
+
+## Key Changes
+- [Important change 1]
+- [Important change 2]
+
+## Test Status
+[passed|failed|skipped] - [brief note if relevant]
+\`\`\`
+
+This summary will be passed to any dependent tasks that run after you.
 `;

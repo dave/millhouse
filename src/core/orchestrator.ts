@@ -1,4 +1,6 @@
 import chalk from 'chalk';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
 import type { Config, GitHubIssue, AnalyzedIssue, RunState, Task } from '../types.js';
 import type { JsonStore } from '../storage/json-store.js';
 import type { GitHubClient } from '../github/client.js';
@@ -265,15 +267,50 @@ export class Orchestrator {
         );
         await this.store.saveWorktree(worktree);
 
+        // Check for prior work from dependencies
+        const dependencies = this.graph!.getDependencies(issueNumber);
+        const completedDeps = dependencies
+          .map(depNum => this.runState!.tasks.find(t => t.issueNumber === depNum))
+          .filter((task): task is Task => !!task && !!task.summary);
+
+        let hasPriorWork = false;
+        if (completedDeps.length > 0) {
+          // Write MILLHOUSE_PRIOR_WORK.md to the worktree
+          const content = completedDeps.map(task => {
+            const depIssue = issueMap.get(task.issueNumber);
+            return `# #${task.issueNumber}: ${depIssue?.title || 'Unknown'}\n\n${task.summary}`;
+          }).join('\n\n---\n\n');
+
+          const priorWorkPath = path.join(worktree.path, 'MILLHOUSE_PRIOR_WORK.md');
+          await fs.writeFile(priorWorkPath, content);
+          hasPriorWork = true;
+
+          if (this.progressDisplay) {
+            this.progressDisplay.logDetailed(issueNumber, `Loaded ${completedDeps.length} prior work summary(ies)`);
+          }
+        }
+
         // Run Claude
         if (this.progressDisplay) {
           this.progressDisplay.logDetailed(issueNumber, 'Running Claude...');
         } else {
           console.log(chalk.blue(`   Running Claude for #${issueNumber}...`));
         }
-        const result = await this.claudeRunner.run(issue, runId, worktree.path);
+        const result = await this.claudeRunner.run(issue, runId, worktree.path, hasPriorWork);
 
         if (result.success) {
+          // Read summary file if it exists
+          const summaryPath = path.join(worktree.path, 'MILLHOUSE_SUMMARY.md');
+          try {
+            const summary = await fs.readFile(summaryPath, 'utf-8');
+            const task = this.runState!.tasks.find(t => t.issueNumber === issueNumber);
+            if (task) {
+              task.summary = summary;
+            }
+          } catch {
+            // Summary file is optional - worker may not have created one
+          }
+
           // Merge changes back
           if (this.progressDisplay) {
             this.progressDisplay.logDetailed(issueNumber, 'Merging changes...');

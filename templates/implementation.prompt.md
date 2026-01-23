@@ -9,6 +9,12 @@ Implement GitHub issue #{{issue.number}}: {{issue.title}}
 ## Likely Affected Files
 
 {{affectedPaths}}
+{{#if hasPriorWork}}
+
+## Prior Work
+
+This task depends on work that has already been completed. Summaries of that prior work are available in `MILLHOUSE_PRIOR_WORK.md` in the repository root. **Read this file first** to understand what has already been implemented before starting your work.
+{{/if}}
 
 ## Instructions
 
@@ -120,7 +126,28 @@ git diff
 
 ## When You're Done
 
-Provide a summary that includes:
+**Create a summary file** called `MILLHOUSE_SUMMARY.md` in the repository root with the following format:
+
+```markdown
+## Summary
+[2-3 sentence description of what was accomplished]
+
+## Files Changed
+- path/to/file1.ts (created|modified|deleted)
+- path/to/file2.ts (created|modified|deleted)
+
+## Key Changes
+- [Important change 1]
+- [Important change 2]
+- [Important change 3]
+
+## Test Status
+[passed|failed|skipped] - [brief note if relevant]
+```
+
+This summary will be passed to any dependent tasks that run after you.
+
+Then provide a final message that includes:
 1. What you changed and why
 2. Any important implementation decisions
 3. Test results and verification of acceptance criteria
