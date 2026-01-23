@@ -56,7 +56,7 @@ This transforms your plan to have:
 
 ### /millhouse issues
 
-Creates GitHub issues from a plan. Use this for GitHub mode.
+Creates GitHub issues from a plan. Remember to first run `/millhouse plan` to get the plan optimized for running with millhouse.
 
 ```
 /millhouse issues              # Create issues from the current plan
