@@ -35,6 +35,18 @@ millhouse run issues        # Run all open GitHub issues
 millhouse run issues 5      # Run issue #5 and linked issues
 ```
 
+## Installation
+
+```bash
+npm install -g millhouse
+```
+
+Then install the `/millhouse` slash command for Claude Code:
+
+```bash
+millhouse setup --global
+```
+
 ## Slash Commands
 
 ### /millhouse plan
@@ -113,19 +125,19 @@ millhouse run issues 5           # Run issue #5 and linked issues
 millhouse run issues 1,2,3       # Run these issues and linked issues
 
 # Options (work with both modes)
-millhouse run --dry-run          # Preview without executing
-millhouse run -n 16              # Set parallel workers (default: 8)
-millhouse run -d detailed        # Start in detailed view (default: compact)
-millhouse run --dangerously-skip-permissions  # Unattended execution
+--dry-run                        # Preview without executing
+-n 16                            # Set parallel workers (default: 8)
+-d detailed                      # Start in detailed view (default: compact)
+--dangerously-skip-permissions   # Unattended execution
 ```
 
 ### Other Commands
 
 ```bash
-millhouse status              # Show all runs
-millhouse status --run-id X   # Show specific run
-millhouse resume <run-id>     # Resume interrupted run
-millhouse clean               # Clean up leftover state
+millhouse status                 # Show all runs
+millhouse status --run-id X      # Show specific run
+millhouse resume <run-id>        # Resume interrupted run
+millhouse clean                  # Clean up leftover state
 ```
 
 ## Writing Good Plans
@@ -164,18 +176,6 @@ Run `npm run build` - should compile without errors.
 - [ ] TypeScript compiles with strict mode
 ```
 
-## Installation
-
-```bash
-npm install -g millhouse
-```
-
-Then install the `/millhouse` slash command for Claude Code:
-
-```bash
-millhouse setup --global
-```
-
 ### Development Install
 
 If you want to contribute or modify millhouse:
@@ -187,7 +187,6 @@ npm install
 npm run build
 npm link
 ```
-
 
 ## Prerequisites
 
@@ -235,7 +234,7 @@ Millhouse automatically manages labels to show progress:
 
 ## Troubleshooting
 
-**Worktree errors after interrupted run:**
+**Worktree errors after interrupted run?**
 ```bash
 millhouse clean
 ```
