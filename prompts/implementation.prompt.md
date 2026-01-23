@@ -62,22 +62,10 @@ You are an expert software engineer implementing a specific task. Follow these s
 
 **DO NOT REPORT SUCCESS IF ANY TESTS FAIL OR ANY ACCEPTANCE CRITERIA ARE NOT MET.**
 
-### 5. Merge Latest Changes and Commit
+### 5. Commit and Update Run Branch
 
-Before committing, merge any changes from parallel workers:
+First, commit your changes on your issue branch:
 
-```bash
-# Merge the latest run branch to get changes from other workers
-# (The worktree shares git objects with the main repo, so the branch is available locally)
-git merge millhouse/run-{{runId}} --no-edit || true
-```
-
-**If there are merge conflicts:**
-- Resolve them carefully, preserving both your changes and the other worker's changes
-- Test that everything still works after resolving conflicts
-- Stage the resolved files with `git add`
-
-Then commit your changes:
 - Stage your changes with `git add <files>`
 - Create a single commit with a comprehensive message that includes:
   - A clear summary line describing the change
@@ -88,11 +76,39 @@ Then commit your changes:
     - Any important implementation decisions
   - End with "Fixes #{{issue.number}}"
 
+Then, merge your changes INTO the run branch:
+
+```bash
+# Loop until we successfully update the run branch
+while true; do
+  # Merge the latest run branch into your issue branch
+  git merge millhouse/run-{{runId}} --no-edit
+
+  # If there are merge conflicts, resolve them:
+  # - Carefully examine each conflict
+  # - Preserve both your changes and changes from other workers
+  # - Test that everything still works after resolving
+  # - Stage resolved files with: git add <resolved-files>
+  # - Complete the merge with: git commit --no-edit
+
+  # Update the run branch to point to your merged commit
+  # This will fail if another worker updated it since we merged
+  if git push . HEAD:millhouse/run-{{runId}}; then
+    echo "Successfully updated run branch"
+    break
+  fi
+
+  echo "Run branch was updated by another worker, merging again..."
+done
+```
+
+**IMPORTANT**: You MUST successfully update the run branch before exiting. The orchestrator relies on this to collect all changes.
+
 ## Important Rules
 
-1. **You are working in a git worktree** on branch `millhouse/run-{{runId}}`
+1. **You are working in a git worktree** on your own issue branch
    - Your working directory is isolated from other parallel tasks
-   - Commit your changes but do NOT push
+   - After committing, you MUST merge your changes into the run branch `millhouse/run-{{runId}}`
 
 2. **Do NOT create a pull request**
    - The orchestrator handles PR creation after all tasks complete

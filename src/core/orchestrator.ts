@@ -346,22 +346,22 @@ export class Orchestrator {
             // Summary file is optional - worker may not have created one
           }
 
-          // Merge changes back
+          // Verify worker merged their changes into the run branch
           if (this.progressDisplay) {
-            this.progressDisplay.logDetailed(issueNumber, 'Merging changes...');
+            this.progressDisplay.logDetailed(issueNumber, 'Verifying merge...');
           } else {
-            console.log(chalk.blue(`   Merging changes for #${issueNumber}...`));
+            console.log(chalk.blue(`   Verifying merge for #${issueNumber}...`));
           }
-          const mergeResult = await this.worktreeManager.mergeWorktree(
+          const verifyResult = await this.worktreeManager.verifyWorkerMerge(
             worktree.path,
             runBranch
           );
 
-          if (!mergeResult.success) {
+          if (!verifyResult.success) {
             return {
               success: false,
               commits: result.commits,
-              error: mergeResult.error || 'Merge failed',
+              error: verifyResult.error || 'Worker did not merge changes into run branch',
             };
           }
         }

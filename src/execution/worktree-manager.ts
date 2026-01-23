@@ -1,4 +1,4 @@
-import { execSync, exec } from 'node:child_process';
+import { exec } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -101,58 +101,49 @@ export class WorktreeManager {
   }
 
   /**
-   * Merge changes from a worktree back into the run branch.
-   * Returns true if successful, false if there were conflicts.
+   * Verify that the worker's changes have been merged into the run branch.
+   * Workers are responsible for merging their own changes before exiting.
+   * This just verifies the merge happened correctly.
    */
-  async mergeWorktree(worktreePath: string, runBranch: string): Promise<{ success: boolean; error?: string }> {
+  async verifyWorkerMerge(worktreePath: string, runBranch: string): Promise<{ success: boolean; error?: string }> {
     try {
-      // Get the current HEAD of the worktree
+      // Get the current HEAD of the worktree (should be on run branch after worker merged)
       const { stdout: worktreeHead } = await execAsync(
         'git rev-parse HEAD',
         { cwd: worktreePath }
       );
-      const commitHash = worktreeHead.trim();
+      const worktreeCommit = worktreeHead.trim();
 
-      // Check if there are any new commits
-      const commits = await this.getNewCommits(worktreePath, runBranch);
-      if (commits.length === 0) {
-        return { success: true };
-      }
+      // Get the current HEAD of the run branch
+      const { stdout: runBranchHead } = await execAsync(
+        `git rev-parse ${runBranch}`,
+        { cwd: this.basePath }
+      );
+      const runBranchCommit = runBranchHead.trim();
 
-      // Switch to run branch in main repo and merge
-      const originalBranch = execSync('git branch --show-current', {
-        cwd: this.basePath,
-        encoding: 'utf-8',
-      }).trim();
-
+      // Check if the worktree commit is an ancestor of (or equal to) the run branch
+      // This verifies the worker successfully merged their changes
       try {
-        await execAsync(`git checkout ${runBranch}`, { cwd: this.basePath });
-        await execAsync(`git merge ${commitHash} --no-edit`, { cwd: this.basePath });
-
+        await execAsync(
+          `git merge-base --is-ancestor ${worktreeCommit} ${runBranch}`,
+          { cwd: this.basePath }
+        );
         return { success: true };
-      } finally {
-        // Return to original branch if different
-        if (originalBranch && originalBranch !== runBranch) {
-          await execAsync(`git checkout ${originalBranch}`, { cwd: this.basePath }).catch(() => {});
-        }
+      } catch {
+        // Commit is not an ancestor - worker didn't merge properly
+        // Try to get more info about what happened
+        const { stdout: logOutput } = await execAsync(
+          `git log --oneline -5 ${runBranch}`,
+          { cwd: this.basePath }
+        ).catch(() => ({ stdout: 'unable to get log' }));
+
+        return {
+          success: false,
+          error: `Worker's changes (${worktreeCommit.slice(0, 7)}) were not merged into run branch (${runBranchCommit.slice(0, 7)}). Run branch history:\n${logOutput}`,
+        };
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-
-      // Always try to abort merge and get status for better error info
-      try {
-        const { stdout: status } = await execAsync('git status --porcelain', { cwd: this.basePath });
-        if (status.includes('UU ') || status.includes('AA ') || status.includes('DD ')) {
-          await execAsync('git merge --abort', { cwd: this.basePath }).catch(() => {});
-          return { success: false, error: 'Merge conflict detected' };
-        }
-      } catch {
-        // Ignore status check errors
-      }
-
-      // Try to abort any in-progress merge
-      await execAsync('git merge --abort', { cwd: this.basePath }).catch(() => {});
-
       return { success: false, error: errorMessage };
     }
   }
