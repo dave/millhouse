@@ -80,6 +80,16 @@ Creates GitHub issues from a plan. Remember to first run `/millhouse plan` to ge
 
 ## How It Works
 
+### Project Scanning
+
+Before workers start, Millhouse scans your project with Claude to generate a comprehensive summary including:
+- Project structure and architecture
+- Key files and what they do
+- Coding conventions and patterns
+- Build system and dependencies
+
+This summary is passed to each worker, giving them essential context even if your project lacks documentation. Use `--no-scan` to skip this step for projects with comprehensive docs.
+
 ### Dependency Analysis
 
 When you run millhouse, it sends your work items to Claude to analyze dependencies. It understands:
@@ -129,6 +139,7 @@ millhouse run issues 1,2,3       # Run these issues and linked issues
 
 # Options (work with both modes)
 --dry-run                        # Preview without executing
+--no-scan                        # Skip project scanning (see below)
 -n 16                            # Set parallel workers (default: 8)
 -d detailed                      # Start in detailed view (default: compact)
 --dangerously-skip-permissions   # Unattended execution
