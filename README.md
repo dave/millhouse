@@ -20,7 +20,6 @@ In Claude Code:
 ... then exit Claude Code and run at the command line:
 ```bash
 millhouse run               # Execute the most recent plan
-millhouse run plan.md       # Execute a specific plan file
 ```
 
 ### GitHub Issues Mode
@@ -34,7 +33,6 @@ In Claude Code:
 ```bash
 millhouse run issues        # Run all open GitHub issues
 millhouse run issues 5      # Run issue #5 and linked issues
-millhouse run issues 1,2,3  # Run these issues and any linked issues
 ```
 
 ## Slash Commands
