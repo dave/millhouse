@@ -12,7 +12,8 @@ const program = new Command();
 program
   .name('millhouse')
   .description('Orchestrates multiple parallel Claude Code instances to work on GitHub issues or plan files')
-  .version('0.1.0');
+  .version('0.1.0')
+  .enablePositionalOptions();
 
 // Main run command - defaults to plan mode
 const runCmd = program
@@ -22,9 +23,10 @@ const runCmd = program
   .option('-n, --concurrency <number>', 'Number of parallel workers', '8')
   .option('-d, --display <mode>', 'Display mode: compact or detailed', 'compact')
   .option('--dry-run', 'Analyze and plan without executing')
-  .option('--scan', 'Scan project and generate summary before running (default: true)', true)
-  .option('--no-scan', 'Skip project scanning')
+  .option('--no-scan', 'Skip project structure scanning')
   .option('--dangerously-skip-permissions', 'Skip permission prompts in spawned Claude instances')
+  .enablePositionalOptions()
+  .passThroughOptions()
   .action(runPlanCommand);
 
 // Subcommand for GitHub issues mode
@@ -35,8 +37,7 @@ runCmd
   .option('-n, --concurrency <number>', 'Number of parallel workers', '8')
   .option('-d, --display <mode>', 'Display mode: compact or detailed', 'compact')
   .option('--dry-run', 'Analyze and plan without executing')
-  .option('--scan', 'Scan project and generate summary before running (default: true)', true)
-  .option('--no-scan', 'Skip project scanning')
+  .option('--no-scan', 'Skip project structure scanning')
   .option('--dangerously-skip-permissions', 'Skip permission prompts in spawned Claude instances')
   .action(runIssuesCommand);
 

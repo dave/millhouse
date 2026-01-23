@@ -133,9 +133,12 @@ export class Orchestrator {
 
     // Scan project if enabled
     if (this.shouldScanProject) {
-      console.log(chalk.blue('   Scanning project structure...'));
+      console.log(chalk.blue('\n📂 Scanning project structure...'));
       const scanResult = await scanProject(process.cwd(), {
         dangerouslySkipPermissions: this.dangerouslySkipPermissions,
+        onLog: (message) => {
+          console.log(chalk.gray(`   ${message}`));
+        },
       });
 
       if (scanResult.success && scanResult.summary) {
