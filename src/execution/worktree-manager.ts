@@ -217,6 +217,26 @@ export class WorktreeManager {
    * Used in local mode to bring changes into the working branch.
    */
   async mergeRunBranch(runBranch: string, targetBranch: string): Promise<void> {
+    // First, clean up temporary millhouse files from the run branch
+    await execAsync(`git checkout ${runBranch}`, { cwd: this.basePath });
+
+    const tempFiles = ['MILLHOUSE_SUMMARY.md', 'MILLHOUSE_MERGE_COMMIT', 'MILLHOUSE_PRIOR_WORK.md'];
+    const filesToRemove: string[] = [];
+
+    for (const file of tempFiles) {
+      try {
+        await fs.access(path.join(this.basePath, file));
+        filesToRemove.push(file);
+      } catch {
+        // File doesn't exist, skip
+      }
+    }
+
+    if (filesToRemove.length > 0) {
+      await execAsync(`git rm -f ${filesToRemove.join(' ')}`, { cwd: this.basePath });
+      await execAsync(`git commit -m "chore: remove temporary millhouse files"`, { cwd: this.basePath });
+    }
+
     // Checkout the target branch
     await execAsync(`git checkout "${targetBranch}"`, { cwd: this.basePath });
 
