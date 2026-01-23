@@ -94,6 +94,8 @@ while true; do
   # Update the run branch to point to your merged commit
   # This will fail if another worker updated it since we merged
   if git push . HEAD:millhouse/run-{{runId}}; then
+    # Record the merge commit for verification
+    git rev-parse HEAD > MILLHOUSE_MERGE_COMMIT
     echo "Successfully updated run branch"
     break
   fi

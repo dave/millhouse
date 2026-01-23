@@ -102,36 +102,39 @@ export class WorktreeManager {
 
   /**
    * Verify that the worker's changes have been merged into the run branch.
-   * Workers are responsible for merging their own changes before exiting.
-   * This just verifies the merge happened correctly.
+   * Workers write the merge commit hash to MILLHOUSE_MERGE_COMMIT after pushing.
+   * We verify that commit is an ancestor of the current run branch.
    */
   async verifyWorkerMerge(worktreePath: string, runBranch: string): Promise<{ success: boolean; error?: string }> {
     try {
-      // Get the current HEAD of the worktree (should be on run branch after worker merged)
-      const { stdout: worktreeHead } = await execAsync(
-        'git rev-parse HEAD',
-        { cwd: worktreePath }
-      );
-      const worktreeCommit = worktreeHead.trim();
+      // Read the merge commit hash written by the worker
+      const mergeCommitPath = path.join(worktreePath, 'MILLHOUSE_MERGE_COMMIT');
+      let mergeCommit: string;
 
-      // Get the current HEAD of the run branch
-      const { stdout: runBranchHead } = await execAsync(
-        `git rev-parse ${runBranch}`,
-        { cwd: this.basePath }
-      );
-      const runBranchCommit = runBranchHead.trim();
+      try {
+        const content = await fs.readFile(mergeCommitPath, 'utf-8');
+        mergeCommit = content.trim();
+      } catch {
+        return {
+          success: false,
+          error: 'Worker did not write MILLHOUSE_MERGE_COMMIT file. The merge loop may have failed.',
+        };
+      }
 
-      // Check if the worktree commit is an ancestor of (or equal to) the run branch
-      // This verifies the worker successfully merged their changes
+      // Verify the merge commit is an ancestor of the run branch
+      // This confirms the worker's push made it into the run branch
       try {
         await execAsync(
-          `git merge-base --is-ancestor ${worktreeCommit} ${runBranch}`,
+          `git merge-base --is-ancestor ${mergeCommit} ${runBranch}`,
           { cwd: this.basePath }
         );
         return { success: true };
       } catch {
-        // Commit is not an ancestor - worker didn't merge properly
-        // Try to get more info about what happened
+        // The worker's merge commit is not in the run branch history
+        const { stdout: runBranchHead } = await execAsync(
+          `git rev-parse ${runBranch}`,
+          { cwd: this.basePath }
+        );
         const { stdout: logOutput } = await execAsync(
           `git log --oneline -5 ${runBranch}`,
           { cwd: this.basePath }
@@ -139,7 +142,7 @@ export class WorktreeManager {
 
         return {
           success: false,
-          error: `Worker's changes (${worktreeCommit.slice(0, 7)}) were not merged into run branch (${runBranchCommit.slice(0, 7)}). Run branch history:\n${logOutput}`,
+          error: `Worker's merge commit (${mergeCommit.slice(0, 7)}) is not in run branch (${runBranchHead.trim().slice(0, 7)}). Run branch history:\n${logOutput}`,
         };
       }
     } catch (error) {
