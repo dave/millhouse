@@ -13,32 +13,28 @@ Parse $ARGUMENTS to determine the subcommand:
 
 ## /millhouse plan
 
-Analyze a plan, extract work items with dependencies, and save as JSON for fast execution by `millhouse run`.
+**Your ONLY job: Convert the current plan to JSON format and write it to a file.**
+
+Do NOT evaluate whether the plan is "ready" or "good enough". Do NOT skip writing the file. ALWAYS write the JSON file.
 
 **Arguments:**
-- `[name]` - Optional OUTPUT name for the JSON file. NOT an input file.
-  - `/millhouse plan` → saves `millhouse-plan.json`
-  - `/millhouse plan foo` → saves `millhouse-plan-foo.json`
-
-**Input:** Use the current plan from this conversation. If no plan has been discussed, output an error and exit.
-
-### Critical Context
-
-These work items will be executed by **parallel Claude Code instances**, each running **unattended in its own isolated context window**. This means:
-
-- Each work item runs in a fresh context with NO memory of other work items
-- Work items must be completely self-contained with ALL context needed
-- Nothing can be assumed or left implicit
-- Multiple items with no dependencies will run simultaneously
+- `[name]` - Optional name for the output JSON file.
+  - `/millhouse plan` → write `millhouse-plan.json`
+  - `/millhouse plan foo` → write `millhouse-plan-foo.json`
 
 ### Instructions
 
-1. Get the plan from the current conversation. If no plan exists, output an error and stop.
-2. Break the plan into discrete, parallelizable work items
-3. Identify dependencies between work items
-4. **IMPORTANT: Write the JSON file to the project root using the Write tool**
-   - No name argument: write to `millhouse-plan.json`
-   - With name argument: write to `millhouse-plan-{name}.json`
+1. Find the current plan in this conversation (check ~/.claude/plans/ or recent messages)
+2. If no plan exists, output an error: "No plan found in conversation" and stop
+3. Convert the plan to JSON format (see format below)
+4. **ALWAYS write the JSON file using the Write tool** - this is required, not optional
+
+### Context for work items
+
+The work items will be executed by **parallel Claude Code instances** in **isolated contexts**:
+- Each runs in a fresh context with NO memory of other items
+- Items must be completely self-contained
+- Multiple items without dependencies run simultaneously
 
 ### Work Item Guidelines
 
@@ -90,11 +86,12 @@ Save to `millhouse-plan.json` (or `millhouse-plan-{name}.json` if name provided)
 }
 ```
 
-### Important
+### CRITICAL
 
-- **Be non-interactive** - don't ask questions, just analyze and output the JSON file
-- **Don't suggest additions** - only restructure and clarify what's in the plan
-- **Make reasonable assumptions** - if something is ambiguous, decide and note it in the item
+- **ALWAYS write the JSON file** - this is the entire point of this command
+- **Never skip writing** - even if the plan "looks ready", you must write the JSON
+- **Don't evaluate** - don't say "the plan is already good" - just convert and write
+- **Be non-interactive** - don't ask questions, just convert and write the file
 
 ---
 
