@@ -22,7 +22,6 @@ interface RunOptions {
   concurrency?: string;
   display?: 'compact' | 'detailed';
   dryRun?: boolean;
-  scan?: boolean;
   dangerouslySkipPermissions?: boolean;
 }
 
@@ -154,7 +153,6 @@ export async function runCommand(options: RunOptions): Promise<void> {
       claudeRunner,
       scheduler,
       progressDisplay,
-      scanProject: options.scan !== false && !options.dryRun,
       dangerouslySkipPermissions: options.dangerouslySkipPermissions,
     });
 

@@ -68,7 +68,6 @@ Execute pending worklist items with parallel workers.
 millhouse run                           # Run all pending items
 millhouse run -n 16                     # Use 16 parallel workers
 millhouse run --dry-run                 # Preview without executing
-millhouse run --no-scan                 # Skip project scanning
 millhouse run --dangerously-skip-permissions  # Unattended execution
 ```
 

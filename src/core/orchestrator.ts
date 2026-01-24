@@ -24,8 +24,6 @@ interface OrchestratorOptions {
   issueDiscoverer?: IssueDiscoverer;
   issueAnalyzer?: IssueAnalyzer;
   progressDisplay?: ProgressDisplay;
-  // Project scanning options
-  scanProject?: boolean;
   dangerouslySkipPermissions?: boolean;
 }
 
@@ -46,7 +44,6 @@ export class Orchestrator {
   private graph: DependencyGraph | null = null;
   private isShuttingDown = false;
   private originalBranch: string | null = null;
-  private shouldScanProject: boolean;
 
   constructor(options: OrchestratorOptions) {
     this.config = options.config;
@@ -60,8 +57,6 @@ export class Orchestrator {
     this.issueDiscoverer = options.issueDiscoverer;
     this.issueAnalyzer = options.issueAnalyzer;
     this.progressDisplay = options.progressDisplay;
-    // Project scanning
-    this.shouldScanProject = options.scanProject ?? true;
 
     // Handle graceful shutdown
     this.setupShutdownHandlers();
@@ -124,15 +119,13 @@ export class Orchestrator {
     this.originalBranch = await this.worktreeManager.getCurrentBranch();
 
     // Check for CLAUDE.md
-    if (this.shouldScanProject) {
-      const claudeMdPath = path.join(process.cwd(), 'CLAUDE.md');
-      try {
-        await fs.access(claudeMdPath);
-      } catch {
-        console.log(chalk.yellow('\n⚠ No CLAUDE.md found.'));
-        console.log(chalk.gray('  CLAUDE.md is highly recommended for best results.'));
-        console.log(chalk.gray('  Run /init inside Claude Code to create it.'));
-      }
+    const claudeMdPath = path.join(process.cwd(), 'CLAUDE.md');
+    try {
+      await fs.access(claudeMdPath);
+    } catch {
+      console.log(chalk.yellow('\n⚠ No CLAUDE.md found.'));
+      console.log(chalk.gray('  CLAUDE.md is highly recommended for best results.'));
+      console.log(chalk.gray('  Run /init inside Claude Code to create it.'));
     }
 
     // Create run state

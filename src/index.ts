@@ -35,7 +35,6 @@ program
   .option('-n, --concurrency <number>', 'Number of parallel workers', '8')
   .option('-d, --display <mode>', 'Display mode: compact or detailed', 'compact')
   .option('--dry-run', 'Analyze and plan without executing')
-  .option('--no-scan', 'Skip project structure scanning')
   .option('--dangerously-skip-permissions', 'Skip permission prompts in spawned Claude instances')
   .action(runCommand);
 
