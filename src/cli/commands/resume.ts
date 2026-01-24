@@ -11,6 +11,7 @@ import { GraphBuilder } from '../../analysis/graph-builder.js';
 import { WorktreeManager } from '../../execution/worktree-manager.js';
 import { ClaudeRunner } from '../../execution/claude-runner.js';
 import { Scheduler } from '../../core/scheduler.js';
+import { ProgressDisplay } from '../../cli/progress-display.js';
 
 export async function resumeCommand(runId: string): Promise<void> {
   const spinner = ora('Loading run state...').start();
@@ -36,7 +37,15 @@ export async function resumeCommand(runId: string): Promise<void> {
     spinner.text = 'Initializing components...';
     const graphBuilder = new GraphBuilder();
     const worktreeManager = new WorktreeManager();
-    const claudeRunner = new ClaudeRunner(config);
+
+    // Create progress display
+    const progressDisplay = new ProgressDisplay();
+
+    const claudeRunner = new ClaudeRunner(config, {
+      onLog: (issueNumber, message) => {
+        progressDisplay.logDetailed(issueNumber, message);
+      },
+    });
 
     // Create scheduler with previous concurrency
     const scheduler = new Scheduler({
@@ -59,6 +68,7 @@ export async function resumeCommand(runId: string): Promise<void> {
       worktreeManager,
       claudeRunner,
       scheduler,
+      progressDisplay,
       ...(isGitHubMode && {
         githubClient,
         labelManager,
