@@ -23,6 +23,7 @@ import {
 } from '../cleanup.js';
 import { resumeCommand } from './resume.js';
 import { ProgressDisplay } from '../progress-display.js';
+import type { AnalyzedIssue, JsonPlan } from '../../types.js';
 
 interface RunOptions {
   concurrency?: string;
@@ -194,7 +195,60 @@ async function resolvePlanPath(planPath: string | undefined): Promise<string> {
   return planPath;
 }
 
-// Plan mode: millhouse run [plan-file]
+/**
+ * Get the JSON plan filename for a given name.
+ * No name = millhouse-plan.json
+ * With name = millhouse-plan-{name}.json
+ */
+function getJsonPlanFilename(name?: string): string {
+  return name ? `millhouse-plan-${name}.json` : 'millhouse-plan.json';
+}
+
+/**
+ * Try to load a JSON plan file.
+ * Returns null if not found.
+ */
+async function loadJsonPlan(name?: string): Promise<JsonPlan | null> {
+  const filename = getJsonPlanFilename(name);
+  const filepath = path.join(process.cwd(), filename);
+
+  try {
+    const content = await fs.readFile(filepath, 'utf-8');
+    const plan = JSON.parse(content) as JsonPlan;
+
+    // Validate version
+    if (plan.version !== 1) {
+      console.log(chalk.yellow(`   Warning: JSON plan version ${plan.version} may not be compatible`));
+    }
+
+    return plan;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Convert a JSON plan to AnalyzedIssue array for execution.
+ */
+function jsonPlanToAnalyzedIssues(plan: JsonPlan): AnalyzedIssue[] {
+  return plan.items.map(item => ({
+    number: item.id,
+    title: item.title,
+    body: item.body,
+    state: 'open' as const,
+    labels: [],
+    url: '',
+    htmlUrl: '',
+    affectedPaths: [],
+    dependencies: item.dependencies,
+    analyzedAt: plan.createdAt,
+  }));
+}
+
+// Plan mode: millhouse run [plan-name]
+// If plan-name is given, first looks for millhouse-plan-{name}.json
+// If no name given, looks for millhouse-plan.json
+// Falls back to markdown plan analysis if JSON not found
 export async function runPlanCommand(plan: string | undefined, options: RunOptions): Promise<void> {
   const shouldContinue = await checkLeftoverState();
   if (!shouldContinue) return;
@@ -204,17 +258,32 @@ export async function runPlanCommand(plan: string | undefined, options: RunOptio
   try {
     const concurrency = parseInt(options.concurrency || '8', 10);
 
-    // Load plan from file (check ~/.claude/plans/ if not found locally)
-    spinner.text = 'Loading plan...';
-    const planPath = await resolvePlanPath(plan);
-    const planContent = await fs.readFile(planPath, 'utf-8');
-    spinner.succeed(`Loaded plan from ${planPath}`);
+    let analyzedIssues: AnalyzedIssue[];
 
-    // Parse plan into work items
-    console.log(chalk.blue('\n🔍 Analyzing plan...'));
-    const planParser = new PlanParser();
-    const analyzedIssues = await planParser.parse(planContent);
-    console.log(chalk.green(`   ✓ Created ${analyzedIssues.length} work item(s)`));
+    // First, try to load a pre-analyzed JSON plan
+    spinner.text = 'Looking for JSON plan...';
+    const jsonPlan = await loadJsonPlan(plan);
+
+    if (jsonPlan) {
+      // Use pre-analyzed JSON plan (fast path)
+      const filename = getJsonPlanFilename(plan);
+      spinner.succeed(`Loaded JSON plan from ${filename}`);
+      analyzedIssues = jsonPlanToAnalyzedIssues(jsonPlan);
+      console.log(chalk.green(`   ✓ ${analyzedIssues.length} work item(s) ready`));
+    } else {
+      // Fall back to markdown plan analysis (slow path)
+      spinner.text = 'Loading markdown plan...';
+      const planPath = await resolvePlanPath(plan);
+      const planContent = await fs.readFile(planPath, 'utf-8');
+      spinner.succeed(`Loaded plan from ${planPath}`);
+
+      // Parse plan into work items
+      console.log(chalk.blue('\n🔍 Analyzing plan...'));
+      const planParser = new PlanParser();
+      analyzedIssues = await planParser.parse(planContent);
+      console.log(chalk.green(`   ✓ Created ${analyzedIssues.length} work item(s)`));
+      console.log(chalk.gray(`   Tip: Run /millhouse plan to create a JSON plan for faster execution`));
+    }
 
     // Load config
     const config = await loadConfig();

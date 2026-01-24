@@ -134,3 +134,22 @@ export type SchedulerEvent =
   | { type: 'task-completed'; issueNumber: number; commits: string[] }
   | { type: 'task-failed'; issueNumber: number; error: string }
   | { type: 'tasks-unblocked'; issueNumbers: number[] };
+
+// =============================================================================
+// JSON Plan format (pre-analyzed plan for fast execution)
+// =============================================================================
+
+export interface JsonPlanItem {
+  id: number;
+  title: string;
+  body: string;
+  dependencies: number[];
+}
+
+export interface JsonPlan {
+  version: 1;
+  name?: string;
+  createdAt: string;
+  sourcePlan?: string; // Path to original markdown plan
+  items: JsonPlanItem[];
+}

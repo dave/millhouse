@@ -18,19 +18,19 @@ In both modes, Millhouse executes work items in parallel where possible, respect
 
 In Claude Code:
 ```
-/millhouse plan             # Refine your plan for millhouse
+/millhouse plan             # Analyze plan.md and save as millhouse-plan.json
 ```
 ... then exit Claude Code and run at the command line:
 ```bash
-millhouse run               # Execute the most recent plan
+millhouse run               # Execute from millhouse-plan.json (fast!)
 ```
 
 ### GitHub Issues Mode
 
 In Claude Code:
 ```
-/millhouse plan             # Refine your plan for millhouse
-/millhouse issues           # Create GitHub issues from your plan
+/millhouse plan             # Analyze plan.md and save as millhouse-plan.json
+/millhouse issues           # Create GitHub issues from JSON plan
 ```
 ... then exit Claude Code and run at the command line:
 ```bash
@@ -54,28 +54,25 @@ millhouse setup --global
 
 ### /millhouse plan
 
-Refines a rough plan into a millhouse-ready format. Use this before running `/millhouse issues` or `millhouse run`.
+Analyzes a plan file and saves as JSON for fast execution. Run this before `millhouse run` or `/millhouse issues`.
 
 ```
-/millhouse plan                # Refine the current plan
-/millhouse plan plan.md        # Refine an existing plan file
+/millhouse plan                # Analyze plan.md → millhouse-plan.json
+/millhouse plan myfeature      # Analyze plan.md → millhouse-plan-myfeature.json
 ```
 
-This transforms your plan to have:
-- **Clearly separated work items** - each runs in a separate context
-- **Appropriately-sized tasks** - small enough to complete unattended
-- **Self-contained descriptions** - all context included, nothing assumed
-- **Acceptance criteria** - how to verify each task is complete
-- **Testing instructions** - specific commands and expected results
-- **Explicit dependencies** - what must complete before each task
+This creates a JSON file with:
+- **Work items** - each with title, body, and dependencies
+- **Dependency graph** - which items must complete before others
+- **Full context** - all implementation details preserved
 
 ### /millhouse issues
 
-Creates GitHub issues from a plan. Remember to first run `/millhouse plan` to get the plan optimized for running with millhouse.
+Creates GitHub issues from a JSON plan. Run `/millhouse plan` first.
 
 ```
-/millhouse issues              # Create issues from the current plan
-/millhouse issues plan.md      # Create issues from a plan file
+/millhouse issues              # Create issues from millhouse-plan.json
+/millhouse issues myfeature    # Create issues from millhouse-plan-myfeature.json
 ```
 
 ## How It Works
@@ -117,9 +114,9 @@ Each work item runs in complete isolation:
 
 | | GitHub Mode                                | Plan Mode                     |
 |---|--------------------------------------------|---------------------------------|
-| Input | GitHub issues                              | Any text/markdown file        |
+| Input | GitHub issues                              | JSON plan file                |
 | Setup | `/millhouse plan` then `/millhouse issues` | `/millhouse plan`             |
-| Run | `millhouse run issues [id]`                | `millhouse run [file.md]`     |
+| Run | `millhouse run issues [id]`                | `millhouse run [name]`        |
 | Output | Pull request                               | Changes on local branch       |
 | Labels | Auto-managed                               | N/A                           |
 
@@ -128,9 +125,9 @@ Each work item runs in complete isolation:
 ### Running
 
 ```bash
-# Plan mode (default)
-millhouse run                    # Run most recent plan from ~/.claude/plans/
-millhouse run plan.md            # Run a specific plan file
+# Plan mode (default) - uses JSON plan for fast execution
+millhouse run                    # Run from millhouse-plan.json
+millhouse run myfeature          # Run from millhouse-plan-myfeature.json
 
 # GitHub issues mode (always discovers linked issues)
 millhouse run issues             # Run all open issues
@@ -144,6 +141,8 @@ millhouse run issues 1,2,3       # Run these issues and linked issues
 -d detailed                      # Start in detailed view (default: compact)
 --dangerously-skip-permissions   # Unattended execution
 ```
+
+**Note:** If no JSON plan is found, `millhouse run` falls back to analyzing markdown plans from `~/.claude/plans/`.
 
 ### Other Commands
 

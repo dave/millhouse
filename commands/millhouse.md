@@ -6,212 +6,131 @@ Orchestrate parallel Claude Code instances to implement work items.
 
 Parse $ARGUMENTS to determine the subcommand:
 
-- `/millhouse plan [plan-file]` - Refine a plan for millhouse execution
-- `/millhouse issues [plan-file]` - Create GitHub issues from a plan
+- `/millhouse plan [name]` - Analyze a plan and save as JSON for fast execution
+- `/millhouse issues [name]` - Create GitHub issues from a JSON plan
 
 ---
 
 ## /millhouse plan
 
-Refine and improve a plan to make it suitable for millhouse execution. This should be fast and unattended - don't ask clarifying questions, just improve the plan.
+Analyze a plan, extract work items with dependencies, and save as JSON for fast execution by `millhouse run`.
 
-### Context
+**Arguments:**
+- `[name]` - Optional plan name. If provided, saves as `millhouse-plan-{name}.json`. If omitted, saves as `millhouse-plan.json`.
 
-Millhouse executes work items in **parallel using separate Claude Code instances**, each running **unattended in its own context window**. This means:
+**Input:** Reads from `plan.md` in the current directory, or ask for the filename if not found.
 
-- Each work item is a fresh start with no memory of previous work
-- Work items must be completely self-contained
+### Critical Context
+
+These work items will be executed by **parallel Claude Code instances**, each running **unattended in its own isolated context window**. This means:
+
+- Each work item runs in a fresh context with NO memory of other work items
+- Work items must be completely self-contained with ALL context needed
 - Nothing can be assumed or left implicit
+- Multiple items with no dependencies will run simultaneously
 
 ### Instructions
 
-1. Read the plan from the file path argument. If no file given, look for plan.md or ask for the filename only.
-2. Analyze the plan and rewrite it following the guidelines below
-3. Save the improved plan to the same file (overwrite), or `plan.md` if it was a new plan
-4. **Do not ask questions about features, scope, or implementation details** - work with what's given
-5. **Do not suggest additions** - only restructure and clarify what's already in the plan
+1. Read the plan from `plan.md` or ask for the filename
+2. Break the plan into discrete, parallelizable work items
+3. Identify dependencies between work items
+4. Save the JSON file to the project root
 
-### Plan Improvement Guidelines
+### Work Item Guidelines
 
-Transform the plan to be millhouse-ready:
+**1. Size appropriately**
+- Each item should be completable in one unattended session
+- "Create an entire application" is too big - break it down
+- "Add a single line" might be too small (unless it's a dependency)
 
-**1. Separate work items clearly**
-- Each work item should be a distinct section
-- Work items will run in separate contexts, stage by stage
-- Make boundaries between items obvious
+**2. Make self-contained**
+- Include ALL implementation details - file paths, function signatures, types
+- Don't say "use the function from task 1" - describe what function and its signature
+- Include enough context that someone with no memory of other tasks could implement it
 
-**2. Split into appropriately-sized tasks**
-- Break large tasks into smaller sub-tasks where necessary
-- Each task should be small enough to complete in one go, unattended
-- A task that's "create an entire application" is too big
-- A task that's "create a function that adds two numbers" might be too small (unless it's a dependency)
+**3. Maximize parallelism**
+- Only add dependencies that are truly required
+- If two items could theoretically run at the same time, don't add a dependency
+- More independent items = faster execution
 
-**3. Make each task self-contained**
-- Include ALL context needed to implement the task
-- Specify exact file paths to create or modify
-- Include function signatures, types, interfaces
-- Don't assume knowledge from other tasks
+**4. Each body MUST include**
+- **Implementation details** with specific file paths
+- **Testing instructions** (specific commands to run)
+- **Acceptance criteria** (how to verify completion)
+- `**Depends on #N**` if it depends on another item (explain what it needs)
 
-**4. Add thorough acceptance criteria**
-- How do we know this task is done?
-- What commands verify it works? (e.g., `npm test`, `go build`)
-- What should the output look like?
-- What edge cases should be handled?
+### Output Format
 
-**5. Add testing instructions**
-- Specific test commands to run
-- Expected results
-- How to verify integration with other components
+Save to `millhouse-plan.json` (or `millhouse-plan-{name}.json` if name provided):
 
-**6. Make dependencies explicit**
-- Which tasks must complete before this one can start?
-- What does this task need from its dependencies? (files, exports, etc.)
-- Use clear language like "This requires the math utilities from task 1"
-
-### Important: Be Non-Interactive
-
-- **Don't ask** if the user wants to add features, tests, or documentation
-- **Don't suggest** expanding scope or adding "nice to haves"
-- **Just restructure** the existing plan into millhouse-ready format
-- If something is ambiguous, make a reasonable assumption and note it in the task
-
-### Example Transformation
-
-**Before (too vague):**
-```markdown
-# My App
-- Build a calculator
-- Add tests
+```json
+{
+  "version": 1,
+  "name": "optional-name",
+  "createdAt": "2024-01-15T10:30:00.000Z",
+  "sourcePlan": "plan.md",
+  "items": [
+    {
+      "id": 1,
+      "title": "Initialize TypeScript Project",
+      "body": "Full implementation details...\n\n## Implementation\n...\n\n## Testing\n...\n\n## Acceptance Criteria\n...",
+      "dependencies": []
+    },
+    {
+      "id": 2,
+      "title": "Create Math Utilities",
+      "body": "**Depends on #1** - needs the TypeScript project structure.\n\nFull implementation details...\n\n## Implementation\n...",
+      "dependencies": [1]
+    }
+  ]
+}
 ```
 
-**After (millhouse-ready):**
-```markdown
-# Calculator App
+### Important
 
-## 1. Initialize TypeScript Project
-Create the project structure with TypeScript configuration.
-
-### Implementation
-- Create `package.json` with name "calculator", typescript and vitest as dev dependencies
-- Create `tsconfig.json` with strict mode, ES2020 target, NodeNext module resolution
-- Create `src/` directory
-
-### Testing
-Run `npm install` and `npx tsc --noEmit` - should complete without errors.
-
-### Acceptance Criteria
-- [ ] `package.json` exists with correct dependencies
-- [ ] `tsconfig.json` exists with strict mode enabled
-- [ ] `src/` directory exists
-- [ ] `npm install && npx tsc --noEmit` succeeds
-
-## 2. Create Math Utilities
-Create basic arithmetic functions used by the calculator.
-
-**Depends on task 1** - needs the TypeScript project structure.
-
-### Implementation
-Create `src/math.ts` with:
-- `add(a: number, b: number): number` - returns sum
-- `subtract(a: number, b: number): number` - returns difference
-- `multiply(a: number, b: number): number` - returns product
-- `divide(a: number, b: number): number` - returns quotient, throws on division by zero
-
-### Testing
-Create `src/math.test.ts` with vitest tests for all functions including edge cases.
-Run `npx vitest run` - all tests should pass.
-
-### Acceptance Criteria
-- [ ] `src/math.ts` exports all four functions
-- [ ] `src/math.test.ts` has tests for each function
-- [ ] Tests cover division by zero error case
-- [ ] `npx vitest run` passes all tests
-```
+- **Be non-interactive** - don't ask questions, just analyze and output the JSON file
+- **Don't suggest additions** - only restructure and clarify what's in the plan
+- **Make reasonable assumptions** - if something is ambiguous, decide and note it in the item
 
 ---
 
 ## /millhouse issues
 
-Convert a plan into GitHub issues formatted for Millhouse.
+Create GitHub issues from a JSON plan file.
 
-### Critical Context
-
-These issues will be implemented by Claude Code instances running **unattended in separate context windows**. Each issue is a fresh start with no memory of previous conversations. This means:
-
-- Every issue must be completely self-contained
-- All relevant context, requirements, and constraints must be explicitly stated
-- Nothing can be assumed or left implicit
+**Arguments:**
+- `[name]` - Optional plan name. Loads `millhouse-plan-{name}.json` or `millhouse-plan.json` if omitted.
 
 ### Instructions
 
-1. Read the plan from the file path argument, or ask the user to describe it
-2. Break it into discrete, implementable issues
-3. For each issue, identify dependencies on other issues
-4. Create issues in order using `gh issue create`, starting with issues that have no dependencies
-5. Use the actual issue numbers returned by GitHub for dependency references
-6. After creating all issues, create an **index issue** that lists them all (see below)
+1. Load the JSON plan file (`millhouse-plan.json` or `millhouse-plan-{name}.json`)
+2. If not found, tell the user to run `/millhouse plan` first
+3. Create GitHub issues from the plan items using `gh issue create`
+4. Create issues in dependency order (no-dependency items first)
+5. Update the JSON plan with the actual GitHub issue numbers
+6. After creating all issues, create an **index issue**
 
-### Issue Content Requirements
+### Important: Dependency Mapping
 
-Each issue MUST include:
+The JSON plan has internal IDs (1, 2, 3...) but GitHub will assign different issue numbers.
 
-**Implementation Details**
-- Specific file paths to create or modify
-- Function signatures, types, or interfaces expected
-- Any specific libraries or patterns to use
-
-**Testing & Verification**
-- How to verify the implementation works
-- Specific test commands to run (e.g., `npm test`, `npm run build`)
-- Expected output or behavior
-
-**Acceptance Criteria**
-- Clear, checkable criteria for when the issue is "done"
-- Edge cases to handle
-- Error conditions to consider
-
-**Dependencies**
-- `**Depends on #N**` if it depends on another issue
-- What specifically it needs from that dependency (files, exports, etc.)
-
-### Example Issue Body
-
-```markdown
-Create `src/utils/math.ts` with basic arithmetic functions.
-
-## Implementation
-- Export functions: `add(a: number, b: number): number` and `multiply(a: number, b: number): number`
-- Use ES module syntax (export, not module.exports)
-- No external dependencies
-
-## Testing
-Run `npx tsc --noEmit` to verify no type errors.
-
-## Acceptance Criteria
-- [ ] File exists at `src/utils/math.ts`
-- [ ] Both functions are exported
-- [ ] TypeScript compiles without errors
-```
+When creating issues:
+1. Create issues with no dependencies first
+2. Track the mapping: internal ID → GitHub issue number
+3. When creating dependent issues, replace `**Depends on #N**` with actual GitHub issue number
 
 ### Index Issue
 
-After creating all implementation issues, create a final **index issue** that serves as an overview. Title it something like "Implement [feature name]" and include:
-
-- A one-line summary of the overall goal
-- A list of all created issues with their numbers and a brief description
-- The command to run: `millhouse run issues <index-number>`
-
-Example:
+After creating all implementation issues, create a final **index issue**:
 
 ```markdown
-Implement a calculator library with math utilities.
+Implement [feature name from plan]
 
 ## Issues
 
-- #1 Create math utilities (`src/utils/math.ts`)
-- #2 Create string helpers (`src/utils/string.ts`)
-- #3 Create calculator class (`src/calculator.ts`)
-- #4 Create main entry point (`src/index.ts`)
+- #101 Create math utilities
+- #102 Create string helpers
+- #103 Create calculator class (depends on #101, #102)
 
 ## Run
 
@@ -219,5 +138,3 @@ Implement a calculator library with math utilities.
 millhouse run issues <this-issue-number>
 \`\`\`
 ```
-
-The index issue should **not** include detailed dependency information—Millhouse will discover dependencies from the individual issues.
