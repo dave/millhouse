@@ -103,7 +103,7 @@ export interface WorktreeInfo {
 // Configuration schema
 export const ConfigSchema = z.object({
   execution: z.object({
-    concurrency: z.number().min(1).max(16).default(8),
+    concurrency: z.number().min(1).default(8),
     baseBranch: z.string().default('main'),
     maxBudgetPerIssue: z.number().positive().default(5.0),
     maxTotalBudget: z.number().positive().default(100.0),
