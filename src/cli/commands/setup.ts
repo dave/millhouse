@@ -70,11 +70,11 @@ export async function setupCommand(options: SetupOptions): Promise<void> {
 
     console.log(`
 ${chalk.bold('Slash commands (in Claude Code):')}
-  /millhouse plan [file]       Refine a plan (omit file to use current plan)
-  /millhouse issues [file]     Create GitHub issues (omit file to use current plan)
+  /millhouse plan [name]       Analyze plan.md and save as JSON
+  /millhouse issues [name]     Create GitHub issues from JSON plan
 
 ${chalk.bold('Then run from terminal:')}
-  millhouse run [file]         Execute plan (omit file to use latest plan)
+  millhouse run [name]         Execute from JSON plan (fast)
   millhouse run issues [id]    Execute GitHub issues (omit id to run all)
   millhouse status             Show run status
 `);

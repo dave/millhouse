@@ -11,7 +11,7 @@ const program = new Command();
 
 program
   .name('millhouse')
-  .description('Orchestrates multiple parallel Claude Code instances to work on GitHub issues or plan files')
+  .description('Orchestrates multiple parallel Claude Code instances to work on GitHub issues or JSON plans')
   .version('0.1.0')
   .enablePositionalOptions();
 
