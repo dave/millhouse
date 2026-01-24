@@ -69,15 +69,23 @@ export class ClaudeRunner {
   async buildPrompt(issue: AnalyzedIssue, runId: string, hasPriorWork: boolean = false): Promise<string> {
     let template = await this.loadPromptTemplate();
 
-    // Handle conditional sections
+    // Handle conditional sections for hasPriorWork
     if (hasPriorWork) {
-      // Keep the content inside {{#if hasPriorWork}}...{{/if}}
       template = template.replace(/\{\{#if hasPriorWork\}\}/g, '');
-      template = template.replace(/\{\{\/if\}\}/g, '');
     } else {
-      // Remove the entire {{#if hasPriorWork}}...{{/if}} block
       template = template.replace(/\{\{#if hasPriorWork\}\}[\s\S]*?\{\{\/if\}\}/g, '');
     }
+
+    // Handle conditional sections for githubIssueNumber
+    if (issue.githubIssueNumber) {
+      template = template.replace(/\{\{#if githubIssueNumber\}\}/g, '');
+      template = template.replace(/\{\{githubIssueNumber\}\}/g, String(issue.githubIssueNumber));
+    } else {
+      template = template.replace(/\{\{#if githubIssueNumber\}\}[\s\S]*?\{\{\/if\}\}/g, '');
+    }
+
+    // Clean up remaining {{/if}} tags
+    template = template.replace(/\{\{\/if\}\}/g, '');
 
     return template
       .replace(/\{\{issue\.number\}\}/g, String(issue.number))

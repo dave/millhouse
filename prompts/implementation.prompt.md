@@ -70,7 +70,7 @@ Stage and commit your changes on your issue branch:
 - Create a single commit with a comprehensive message that includes:
   - A clear summary line describing the change
   - A detailed body explaining what was implemented
-  - End with "Fixes #{{issue.number}}"
+{{#if githubIssueNumber}}  - End with "Fixes #{{githubIssueNumber}}"{{/if}}
 
 ### 6. CRITICAL: Merge Into Run Branch
 
@@ -149,9 +149,9 @@ Changes:
 
 Acceptance criteria satisfied:
 - [x] Functions exported correctly
-- [x] No type errors
+- [x] No type errors{{#if githubIssueNumber}}
 
-Fixes #{{issue.number}}"
+Fixes #{{githubIssueNumber}}{{/if}}"
 
 # Check status
 git status

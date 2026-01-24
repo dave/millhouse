@@ -564,7 +564,6 @@ export class Orchestrator {
     runBranch: string
   ): Promise<{ success: boolean; commits: string[]; error?: string }> {
     const issueNumber = issue.number;
-    const githubIssueNumber = issue.githubIssueNumber || issueNumber;
 
     if (this.progressDisplay) {
       this.progressDisplay.logDetailed(issueNumber, 'No work needed - creating closing commit...');
@@ -582,7 +581,11 @@ export class Orchestrator {
       await this.store.saveWorktree(worktree);
 
       // Create an empty commit with the closing message
-      const commitMessage = `chore: close #${githubIssueNumber} (no work needed)\n\nThis is a tracking/index issue that requires no code changes.\n\nFixes #${githubIssueNumber}`;
+      // Only include "Fixes #X" if there's a real GitHub issue number
+      let commitMessage = `chore: close task #${issueNumber} (no work needed)\n\nThis is a tracking/index issue that requires no code changes.`;
+      if (issue.githubIssueNumber) {
+        commitMessage += `\n\nFixes #${issue.githubIssueNumber}`;
+      }
 
       const { execSync } = await import('node:child_process');
       execSync(`git commit --allow-empty -m "${commitMessage.replace(/"/g, '\\"')}"`, {
