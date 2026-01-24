@@ -25,6 +25,7 @@ export class ProgressDisplay {
   private issueOrder: number[] = [];
   private compactMode = true;
   private lastRenderLines = 0;
+  private lastTermWidth = 0;
   private keyHandler: ((key: Buffer) => void) | null = null;
   private resizeHandler: (() => void) | null = null;
   private isRunning = false;
@@ -120,11 +121,21 @@ export class ProgressDisplay {
 
     // Listen for terminal resize to re-render with new width
     if (process.stdout.isTTY) {
+      this.lastTermWidth = process.stdout.columns || 80;
       this.resizeHandler = () => {
         if (this.compactMode && this.isRunning) {
-          // Just re-render with new width - some garbage may remain briefly
-          // from previously wrapped lines, but it's better than clearing
-          // useful content above the progress display
+          const newWidth = process.stdout.columns || 80;
+
+          // If terminal got narrower, lines may have wrapped - clear extra
+          if (newWidth < this.lastTermWidth && this.lastRenderLines > 0) {
+            // Estimate how many physical lines we might have now
+            // Each line could have wrapped to ceil(oldWidth/newWidth) lines
+            const wrapFactor = Math.ceil(this.lastTermWidth / Math.max(newWidth, 1));
+            const linesToClear = this.lastRenderLines * wrapFactor;
+            this.lastRenderLines = linesToClear;
+          }
+
+          this.lastTermWidth = newWidth;
           this.render();
         }
       };
@@ -416,6 +427,7 @@ export class ProgressDisplay {
     // Single atomic write
     process.stdout.write(output);
     this.lastRenderLines = lines.length;
+    this.lastTermWidth = termWidth;
   }
 
   /**
