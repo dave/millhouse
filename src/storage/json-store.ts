@@ -28,6 +28,27 @@ export class JsonStore {
 
   async ensureDirectories(): Promise<void> {
     await fs.mkdir(this.runsDir, { recursive: true });
+    await this.ensureGitignore();
+  }
+
+  private async ensureGitignore(): Promise<void> {
+    const gitignorePath = path.join(this.basePath, '.gitignore');
+    const entry = '.millhouse';
+
+    try {
+      const content = await fs.readFile(gitignorePath, 'utf-8');
+      // Check if .millhouse is already in gitignore (as whole line)
+      const lines = content.split('\n');
+      if (lines.some(line => line.trim() === entry)) {
+        return; // Already present
+      }
+      // Append to existing gitignore
+      const newContent = content.endsWith('\n') ? content + entry + '\n' : content + '\n' + entry + '\n';
+      await fs.writeFile(gitignorePath, newContent);
+    } catch {
+      // No .gitignore exists, create one
+      await fs.writeFile(gitignorePath, entry + '\n');
+    }
   }
 
   generateRunId(): string {

@@ -108,7 +108,75 @@ export class Orchestrator {
     if (!this.issueAnalyzer) {
       throw new Error('analyzeIssues is only available in GitHub mode');
     }
-    return this.issueAnalyzer.analyzeIssues(issues);
+    const result = await this.issueAnalyzer.analyzeIssues(issues);
+    return result.issues;
+  }
+
+  /**
+   * Check that the working directory is clean before starting a run.
+   * Only allows files that are gitignored - all other changes must be committed or stashed.
+   */
+  private async checkWorkingDirectoryClean(): Promise<void> {
+    const { execSync } = await import('node:child_process');
+
+    const isGitIgnored = (filePath: string): boolean => {
+      try {
+        // git check-ignore exits 0 if ignored, 1 if not ignored
+        execSync(`git check-ignore -q "${filePath}"`, {
+          cwd: process.cwd(),
+          stdio: 'pipe',
+        });
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    try {
+      const status = execSync('git status --porcelain', {
+        cwd: process.cwd(),
+        encoding: 'utf-8',
+      }).trim();
+
+      if (status) {
+        const lines = status.split('\n');
+        // Filter out gitignored files
+        const unexpectedLines = lines.filter(line => {
+          // Extract the file path (status is first 2 chars, then space, then path)
+          const filePath = line.slice(3);
+          return !isGitIgnored(filePath);
+        });
+
+        if (unexpectedLines.length > 0) {
+          const untracked = unexpectedLines.filter(l => l.startsWith('??'));
+          const modified = unexpectedLines.filter(l => !l.startsWith('??'));
+
+          const issues: string[] = [];
+          if (modified.length > 0) {
+            issues.push(`${modified.length} uncommitted change(s)`);
+          }
+          if (untracked.length > 0) {
+            issues.push(`${untracked.length} untracked file(s)`);
+          }
+
+          console.log(chalk.yellow(`\n⚠ Working directory is not clean: ${issues.join(', ')}`));
+          console.log(chalk.gray('  These files may cause merge conflicts at the end of the run:'));
+          for (const line of unexpectedLines.slice(0, 10)) {
+            console.log(chalk.gray(`    ${line}`));
+          }
+          if (unexpectedLines.length > 10) {
+            console.log(chalk.gray(`    ... and ${unexpectedLines.length - 10} more`));
+          }
+          console.log(chalk.gray('\n  Commit or stash these changes before running.\n'));
+          throw new Error('Working directory is not clean. Commit or stash changes before running.');
+        }
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('Working directory is not clean')) {
+        throw error;
+      }
+      // If git status fails for some other reason, continue
+    }
   }
 
   /**
@@ -117,6 +185,9 @@ export class Orchestrator {
   async run(analyzedIssues: AnalyzedIssue[]): Promise<RunState> {
     // Save original branch to restore later
     this.originalBranch = await this.worktreeManager.getCurrentBranch();
+
+    // Check working directory is clean (allowing expected files)
+    await this.checkWorkingDirectoryClean();
 
     // Check for CLAUDE.md
     const claudeMdPath = path.join(process.cwd(), 'CLAUDE.md');
@@ -194,6 +265,9 @@ export class Orchestrator {
     // Save original branch to restore later
     this.originalBranch = await this.worktreeManager.getCurrentBranch();
 
+    // Check working directory is clean (allowing expected files)
+    await this.checkWorkingDirectoryClean();
+
     this.runState = runState;
 
     // Rebuild graph from issues
@@ -259,6 +333,11 @@ export class Orchestrator {
       const issue = issueMap.get(issueNumber);
       if (!issue) {
         return { success: false, commits: [], error: 'Issue not found' };
+      }
+
+      // Handle noWorkNeeded issues - just create a closing commit
+      if (issue.noWorkNeeded) {
+        return await this.handleNoWorkNeededIssue(issue, runId, runBranch);
       }
 
       try {
@@ -465,6 +544,74 @@ export class Orchestrator {
       if (error) {
         task.error = error;
       }
+    }
+  }
+
+  /**
+   * Handle issues marked as noWorkNeeded (index/meta issues).
+   * Creates an empty commit to close the issue when merged.
+   * Uses a worktree to avoid polluting the main working directory.
+   */
+  private async handleNoWorkNeededIssue(
+    issue: AnalyzedIssue,
+    runId: string,
+    runBranch: string
+  ): Promise<{ success: boolean; commits: string[]; error?: string }> {
+    const issueNumber = issue.number;
+    const githubIssueNumber = issue.githubIssueNumber || issueNumber;
+
+    if (this.progressDisplay) {
+      this.progressDisplay.logDetailed(issueNumber, 'No work needed - creating closing commit...');
+    } else {
+      console.log(chalk.blue(`   #${issueNumber}: No work needed - creating closing commit...`));
+    }
+
+    try {
+      // Create worktree on its own branch (forked from run branch)
+      const worktree = await this.worktreeManager.createWorktree(
+        runId,
+        issueNumber,
+        runBranch
+      );
+      await this.store.saveWorktree(worktree);
+
+      // Create an empty commit with the closing message
+      const commitMessage = `chore: close #${githubIssueNumber} (no work needed)\n\nThis is a tracking/index issue that requires no code changes.\n\nFixes #${githubIssueNumber}`;
+
+      const { execSync } = await import('node:child_process');
+      execSync(`git commit --allow-empty -m "${commitMessage.replace(/"/g, '\\"')}"`, {
+        cwd: worktree.path,
+        stdio: 'pipe',
+      });
+
+      // Get the commit hash
+      const commitHash = execSync('git rev-parse HEAD', {
+        cwd: worktree.path,
+        encoding: 'utf-8',
+      }).trim();
+
+      // Update the run branch to include this commit using git update-ref
+      // This avoids checking out in the main working directory
+      execSync(`git fetch "${worktree.path}" HEAD:${runBranch}`, {
+        cwd: process.cwd(),
+        stdio: 'pipe',
+      });
+
+      // Write MILLHOUSE_MERGE_COMMIT for consistency
+      const mergeCommitPath = path.join(worktree.path, 'MILLHOUSE_MERGE_COMMIT');
+      await fs.writeFile(mergeCommitPath, commitHash);
+
+      // Clean up
+      await this.worktreeManager.removeWorktree(worktree.path, worktree.branch);
+      await this.store.removeWorktree(worktree.path);
+
+      return { success: true, commits: [commitHash] };
+    } catch (error) {
+      return {
+        success: false,
+        commits: [],
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 }
