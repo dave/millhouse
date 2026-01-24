@@ -278,11 +278,8 @@ export class ProgressDisplay {
    * Truncate a message to fit on one line.
    */
   private truncateMessage(message: string): string {
-    // Remove newlines and trim
-    const clean = message.replace(/\n/g, ' ').trim();
-    const maxLen = 60;
-    if (clean.length <= maxLen) return clean;
-    return clean.slice(0, maxLen - 3) + '...';
+    // Remove newlines and trim - actual length truncation happens in doRender based on terminal width
+    return message.replace(/\n/g, ' ').trim();
   }
 
   /**
