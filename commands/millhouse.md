@@ -20,12 +20,44 @@ Analyze a plan, extract work items with dependencies, and save as JSON for fast 
 
 **Input:** Reads from `plan.md` in the current directory, or ask for the filename if not found.
 
+### Critical Context
+
+These work items will be executed by **parallel Claude Code instances**, each running **unattended in its own isolated context window**. This means:
+
+- Each work item runs in a fresh context with NO memory of other work items
+- Work items must be completely self-contained with ALL context needed
+- Nothing can be assumed or left implicit
+- Multiple items with no dependencies will run simultaneously
+
 ### Instructions
 
 1. Read the plan from `plan.md` or ask for the filename
-2. Break the plan into discrete work items
+2. Break the plan into discrete, parallelizable work items
 3. Identify dependencies between work items
-4. Output a JSON file with the analyzed plan
+4. Save the JSON file to the project root
+
+### Work Item Guidelines
+
+**1. Size appropriately**
+- Each item should be completable in one unattended session
+- "Create an entire application" is too big - break it down
+- "Add a single line" might be too small (unless it's a dependency)
+
+**2. Make self-contained**
+- Include ALL implementation details - file paths, function signatures, types
+- Don't say "use the function from task 1" - describe what function and its signature
+- Include enough context that someone with no memory of other tasks could implement it
+
+**3. Maximize parallelism**
+- Only add dependencies that are truly required
+- If two items could theoretically run at the same time, don't add a dependency
+- More independent items = faster execution
+
+**4. Each body MUST include**
+- **Implementation details** with specific file paths
+- **Testing instructions** (specific commands to run)
+- **Acceptance criteria** (how to verify completion)
+- `**Depends on #N**` if it depends on another item (explain what it needs)
 
 ### Output Format
 
@@ -47,40 +79,18 @@ Save to `millhouse-plan.json` (or `millhouse-plan-{name}.json` if name provided)
     {
       "id": 2,
       "title": "Create Math Utilities",
-      "body": "Full implementation details...\n\n**Depends on #1**\n\n## Implementation\n...",
+      "body": "**Depends on #1** - needs the TypeScript project structure.\n\nFull implementation details...\n\n## Implementation\n...",
       "dependencies": [1]
     }
   ]
 }
 ```
 
-### Work Item Requirements
+### Important
 
-Each work item body MUST include:
-
-**Implementation Details**
-- Specific file paths to create or modify
-- Function signatures, types, or interfaces
-- Libraries or patterns to use
-
-**Testing & Verification**
-- Commands to verify the implementation
-- Expected output or behavior
-
-**Acceptance Criteria**
-- Clear checkable criteria for completion
-- Edge cases to handle
-
-**Dependencies** (in body text)
-- `**Depends on #N**` if it depends on another item
-- What it needs from that dependency
-
-### Important Guidelines
-
-- **Be non-interactive** - don't ask questions, just analyze and output
-- **Make each item self-contained** - include ALL context needed
-- **Split appropriately** - not too big (entire app) or too small (trivial function)
-- **Dependencies must be by ID** - use the numeric ID in the dependencies array
+- **Be non-interactive** - don't ask questions, just analyze and output the JSON file
+- **Don't suggest additions** - only restructure and clarify what's in the plan
+- **Make reasonable assumptions** - if something is ambiguous, decide and note it in the item
 
 ---
 
