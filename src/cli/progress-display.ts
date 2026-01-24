@@ -121,6 +121,11 @@ export class ProgressDisplay {
     if (process.stdout.isTTY) {
       this.resizeHandler = () => {
         if (this.compactMode && this.isRunning) {
+          // On resize, clear aggressively since wrapped lines may have created
+          // more physical lines than we tracked
+          const clearLines = Math.max(this.lastRenderLines * 3, 50);
+          process.stdout.write(`\r\x1B[${clearLines}A\x1B[J`);
+          this.lastRenderLines = 0;
           this.render();
         }
       };
