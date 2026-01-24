@@ -241,6 +241,12 @@ export class Orchestrator {
     this.runState.updatedAt = new Date().toISOString();
     await this.store.saveRun(this.runState);
 
+    // Initialize progress display
+    if (this.progressDisplay) {
+      this.progressDisplay.initialize(runState.issues);
+      this.progressDisplay.start();
+    }
+
     // Continue from where we left off
     try {
       return await this.executeScheduler(
@@ -249,6 +255,9 @@ export class Orchestrator {
         runState.issues
       );
     } finally {
+      if (this.progressDisplay) {
+        this.progressDisplay.stop();
+      }
       // Restore original branch
       if (this.originalBranch) {
         await this.worktreeManager.restoreBranch(this.originalBranch);
