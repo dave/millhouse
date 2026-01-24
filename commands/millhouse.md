@@ -13,21 +13,20 @@ Parse $ARGUMENTS to determine the subcommand:
 
 ## /millhouse plan
 
-**Your ONLY job: Convert the current plan to JSON format and write it to a file.**
+### ⚠️ MANDATORY: YOU MUST WRITE A JSON FILE ⚠️
 
-Do NOT evaluate whether the plan is "ready" or "good enough". Do NOT skip writing the file. ALWAYS write the JSON file.
+This command REQUIRES you to write a `millhouse-plan.json` file. There is NO scenario where you skip writing the file. Even if the plan looks perfect, you MUST write the JSON file.
 
-**Arguments:**
-- `[name]` - Optional name for the output JSON file.
-  - `/millhouse plan` → write `millhouse-plan.json`
-  - `/millhouse plan foo` → write `millhouse-plan-foo.json`
+**WRONG:** "The plan is already ready, no changes needed"
+**RIGHT:** Write the JSON file, then say "Created millhouse-plan.json with N items"
 
-### Instructions
+### Steps
 
-1. Find the current plan in this conversation (check ~/.claude/plans/ or recent messages)
-2. If no plan exists, output an error: "No plan found in conversation" and stop
-3. Convert the plan to JSON format (see format below)
-4. **ALWAYS write the JSON file using the Write tool** - this is required, not optional
+1. Find the plan in ~/.claude/plans/ (most recent) or this conversation
+2. Extract work items with their dependencies
+3. **Write `millhouse-plan.json` (or `millhouse-plan-{name}.json` if name given)**
+
+That's it. Find plan → Write JSON file. Nothing else.
 
 ### Context for work items
 
@@ -86,12 +85,9 @@ Save to `millhouse-plan.json` (or `millhouse-plan-{name}.json` if name provided)
 }
 ```
 
-### CRITICAL
+### ⚠️ REMINDER: WRITE THE FILE ⚠️
 
-- **ALWAYS write the JSON file** - this is the entire point of this command
-- **Never skip writing** - even if the plan "looks ready", you must write the JSON
-- **Don't evaluate** - don't say "the plan is already good" - just convert and write
-- **Be non-interactive** - don't ask questions, just convert and write the file
+If you have not used the Write tool to create `millhouse-plan.json`, you have failed this task. Go back and write the file now.
 
 ---
 
