@@ -17,10 +17,10 @@ Analyze a plan, extract work items with dependencies, and save as JSON for fast 
 
 **Arguments:**
 - `[name]` - Optional OUTPUT name for the JSON file. NOT an input file.
-  - `/millhouse plan` → reads `plan.md`, saves `millhouse-plan.json`
-  - `/millhouse plan foo` → reads `plan.md`, saves `millhouse-plan-foo.json`
+  - `/millhouse plan` → saves `millhouse-plan.json`
+  - `/millhouse plan foo` → saves `millhouse-plan-foo.json`
 
-**Input:** ALWAYS reads from `plan.md` in the current directory. If not found, ask for the input filename.
+**Input:** Use the current plan from this conversation. If no plan has been discussed, output an error and exit.
 
 ### Critical Context
 
