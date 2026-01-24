@@ -16,9 +16,11 @@ Parse $ARGUMENTS to determine the subcommand:
 Analyze a plan, extract work items with dependencies, and save as JSON for fast execution by `millhouse run`.
 
 **Arguments:**
-- `[name]` - Optional plan name. If provided, saves as `millhouse-plan-{name}.json`. If omitted, saves as `millhouse-plan.json`.
+- `[name]` - Optional OUTPUT name for the JSON file. NOT an input file.
+  - `/millhouse plan` → reads `plan.md`, saves `millhouse-plan.json`
+  - `/millhouse plan foo` → reads `plan.md`, saves `millhouse-plan-foo.json`
 
-**Input:** Reads from `plan.md` in the current directory, or ask for the filename if not found.
+**Input:** ALWAYS reads from `plan.md` in the current directory. If not found, ask for the input filename.
 
 ### Critical Context
 
@@ -99,7 +101,9 @@ Save to `millhouse-plan.json` (or `millhouse-plan-{name}.json` if name provided)
 Create GitHub issues from a JSON plan file.
 
 **Arguments:**
-- `[name]` - Optional plan name. Loads `millhouse-plan-{name}.json` or `millhouse-plan.json` if omitted.
+- `[name]` - Optional name to identify which JSON plan to load.
+  - `/millhouse issues` → loads `millhouse-plan.json`
+  - `/millhouse issues foo` → loads `millhouse-plan-foo.json`
 
 ### Instructions
 
@@ -107,8 +111,7 @@ Create GitHub issues from a JSON plan file.
 2. If not found, tell the user to run `/millhouse plan` first
 3. Create GitHub issues from the plan items using `gh issue create`
 4. Create issues in dependency order (no-dependency items first)
-5. Update the JSON plan with the actual GitHub issue numbers
-6. After creating all issues, create an **index issue**
+5. After creating all issues, create an **index issue**
 
 ### Important: Dependency Mapping
 
