@@ -79,6 +79,25 @@ export async function resumeCommand(runId: string): Promise<void> {
 
     spinner.succeed('Loaded');
 
+    // Retry any previously failed jobs
+    if (runState.failedIssues.length > 0) {
+      console.log(chalk.yellow(`\n🔄 Retrying ${runState.failedIssues.length} failed job(s)...`));
+
+      // Reset failed tasks to queued status
+      for (const issueNumber of runState.failedIssues) {
+        const task = runState.tasks.find(t => t.issueNumber === issueNumber);
+        if (task) {
+          task.status = 'queued';
+          task.error = undefined;
+          task.startedAt = undefined;
+          task.completedAt = undefined;
+        }
+      }
+
+      // Clear failed issues list
+      runState.failedIssues = [];
+    }
+
     // Show current state
     console.log(chalk.blue(`\n📦 Resuming run: ${runId}`));
     console.log(`   Completed: ${runState.completedIssues.length}`);
