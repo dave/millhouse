@@ -25,9 +25,9 @@ export class ProgressDisplay {
   private issueOrder: number[] = [];
   private compactMode = true;
   private lastRenderLines = 0;
-  private lastTermWidth = 0;
   private keyHandler: ((key: Buffer) => void) | null = null;
   private resizeHandler: (() => void) | null = null;
+  private resizeTimeout: NodeJS.Timeout | null = null;
   private isRunning = false;
   private logHistory: Array<{ issueNumber: number; message: string }> = [];
   private renderTimeout: NodeJS.Timeout | null = null;
@@ -120,23 +120,19 @@ export class ProgressDisplay {
     }
 
     // Listen for terminal resize to re-render with new width
+    // Debounce to avoid issues during fast resize
     if (process.stdout.isTTY) {
-      this.lastTermWidth = process.stdout.columns || 80;
       this.resizeHandler = () => {
         if (this.compactMode && this.isRunning) {
-          const newWidth = process.stdout.columns || 80;
-
-          // If terminal got narrower, lines may have wrapped - clear extra
-          if (newWidth < this.lastTermWidth && this.lastRenderLines > 0) {
-            // Estimate how many physical lines we might have now
-            // Each line could have wrapped to ceil(oldWidth/newWidth) lines
-            const wrapFactor = Math.ceil(this.lastTermWidth / Math.max(newWidth, 1));
-            const linesToClear = this.lastRenderLines * wrapFactor;
-            this.lastRenderLines = linesToClear;
+          // Clear any pending resize render
+          if (this.resizeTimeout) {
+            clearTimeout(this.resizeTimeout);
           }
-
-          this.lastTermWidth = newWidth;
-          this.render();
+          // Wait for resize to settle before re-rendering
+          this.resizeTimeout = setTimeout(() => {
+            this.resizeTimeout = null;
+            this.render();
+          }, 150);
         }
       };
       process.stdout.on('resize', this.resizeHandler);
@@ -159,6 +155,10 @@ export class ProgressDisplay {
     if (this.renderTimeout) {
       clearTimeout(this.renderTimeout);
       this.renderTimeout = null;
+    }
+    if (this.resizeTimeout) {
+      clearTimeout(this.resizeTimeout);
+      this.resizeTimeout = null;
     }
 
     if (process.stdin.isTTY) {
@@ -427,7 +427,6 @@ export class ProgressDisplay {
     // Single atomic write
     process.stdout.write(output);
     this.lastRenderLines = lines.length;
-    this.lastTermWidth = termWidth;
   }
 
   /**
