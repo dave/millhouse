@@ -4,7 +4,6 @@ import path from 'node:path';
 import type { Config, GitHubIssue, AnalyzedIssue, RunState, Task } from '../types.js';
 import type { JsonStore } from '../storage/json-store.js';
 import type { GitHubClient } from '../github/client.js';
-import type { LabelManager } from '../github/label-manager.js';
 import type { IssueDiscoverer } from '../github/issue-discoverer.js';
 import type { IssueAnalyzer } from '../analysis/issue-analyzer.js';
 import type { GraphBuilder, DependencyGraph } from '../analysis/graph-builder.js';
@@ -12,7 +11,6 @@ import type { WorktreeManager } from '../execution/worktree-manager.js';
 import type { ClaudeRunner } from '../execution/claude-runner.js';
 import type { Scheduler } from './scheduler.js';
 import type { ProgressDisplay } from '../cli/progress-display.js';
-import { scanProject } from '../execution/project-scanner.js';
 
 interface OrchestratorOptions {
   config: Config;
@@ -21,9 +19,8 @@ interface OrchestratorOptions {
   worktreeManager: WorktreeManager;
   claudeRunner: ClaudeRunner;
   scheduler: Scheduler;
-  // GitHub-specific (optional for local mode)
+  // GitHub-specific (optional for load command)
   githubClient?: GitHubClient;
-  labelManager?: LabelManager;
   issueDiscoverer?: IssueDiscoverer;
   issueAnalyzer?: IssueAnalyzer;
   progressDisplay?: ProgressDisplay;
@@ -39,9 +36,8 @@ export class Orchestrator {
   private worktreeManager: WorktreeManager;
   private claudeRunner: ClaudeRunner;
   private scheduler: Scheduler;
-  // GitHub-specific (optional for local mode)
+  // GitHub-specific (optional for load command)
   private githubClient?: GitHubClient;
-  private labelManager?: LabelManager;
   private issueDiscoverer?: IssueDiscoverer;
   private issueAnalyzer?: IssueAnalyzer;
   private progressDisplay?: ProgressDisplay;
@@ -51,7 +47,6 @@ export class Orchestrator {
   private isShuttingDown = false;
   private originalBranch: string | null = null;
   private shouldScanProject: boolean;
-  private dangerouslySkipPermissions: boolean;
 
   constructor(options: OrchestratorOptions) {
     this.config = options.config;
@@ -62,13 +57,11 @@ export class Orchestrator {
     this.scheduler = options.scheduler;
     // GitHub-specific
     this.githubClient = options.githubClient;
-    this.labelManager = options.labelManager;
     this.issueDiscoverer = options.issueDiscoverer;
     this.issueAnalyzer = options.issueAnalyzer;
     this.progressDisplay = options.progressDisplay;
     // Project scanning
     this.shouldScanProject = options.scanProject ?? true;
-    this.dangerouslySkipPermissions = options.dangerouslySkipPermissions ?? false;
 
     // Handle graceful shutdown
     this.setupShutdownHandlers();
@@ -130,29 +123,15 @@ export class Orchestrator {
     // Save original branch to restore later
     this.originalBranch = await this.worktreeManager.getCurrentBranch();
 
-    // Check for existing CLAUDE.md or run /init
+    // Check for CLAUDE.md
     if (this.shouldScanProject) {
       const claudeMdPath = path.join(process.cwd(), 'CLAUDE.md');
       try {
         await fs.access(claudeMdPath);
-        // CLAUDE.md exists - workers will pick it up automatically from worktree
-        console.log(chalk.blue('\n📂 Using existing CLAUDE.md for project context'));
       } catch {
-        // No CLAUDE.md - run /init to create one
-        console.log(chalk.blue('\n📂 No CLAUDE.md found, running /init...'));
-        const scanResult = await scanProject(process.cwd(), {
-          dangerouslySkipPermissions: this.dangerouslySkipPermissions,
-          onLog: (message) => {
-            console.log(chalk.gray(`   ${message}`));
-          },
-        });
-
-        if (scanResult.success) {
-          console.log(chalk.green('   ✓ CLAUDE.md created'));
-        } else {
-          console.log(chalk.yellow(`   ⚠ /init failed: ${scanResult.error}`));
-          // Continue without - it's not critical
-        }
+        console.log(chalk.yellow('\n⚠ No CLAUDE.md found.'));
+        console.log(chalk.gray('  CLAUDE.md is highly recommended for best results.'));
+        console.log(chalk.gray('  Run /init inside Claude Code to create it.'));
       }
     }
 
@@ -194,15 +173,6 @@ export class Orchestrator {
     };
 
     await this.store.saveRun(this.runState);
-
-    // GitHub-specific: manage labels
-    if (this.labelManager) {
-      await this.labelManager.ensureLabelsExist();
-      await this.labelManager.setStatusBatch(
-        analyzedIssues.map(i => i.number),
-        'queued'
-      );
-    }
 
     // Initialize progress display
     if (this.progressDisplay) {
@@ -398,33 +368,15 @@ export class Orchestrator {
     this.runState.failedIssues = failed;
     this.runState.updatedAt = new Date().toISOString();
 
-    // Create PR if all completed (GitHub mode only)
+    // Merge run branch into current branch if any items completed
     if (failed.length === 0 && completed.length > 0) {
-      if (this.githubClient) {
-        try {
-          // Push run branch
-          console.log(chalk.blue('   Pushing changes...'));
-          await this.worktreeManager.pushRunBranch(runBranch);
-
-          // Create PR
-          console.log(chalk.blue('   Creating pull request...'));
-          const prUrl = await this.createFinalPR(runId, runBranch, issues, completed);
-          this.runState.pullRequestUrl = prUrl;
-          this.runState.status = 'completed';
-        } catch (error) {
-          this.runState.error = error instanceof Error ? error.message : String(error);
-          this.runState.status = 'failed';
-        }
-      } else {
-        // Local mode - merge run branch into original branch
-        try {
-          console.log(chalk.blue('   Merging changes into current branch...'));
-          await this.worktreeManager.mergeRunBranch(runBranch, this.originalBranch!);
-          this.runState.status = 'completed';
-        } catch (error) {
-          this.runState.error = error instanceof Error ? error.message : String(error);
-          this.runState.status = 'failed';
-        }
+      try {
+        console.log(chalk.blue('   Merging changes into current branch...'));
+        await this.worktreeManager.mergeRunBranch(runBranch, this.originalBranch!);
+        this.runState.status = 'completed';
+      } catch (error) {
+        this.runState.error = error instanceof Error ? error.message : String(error);
+        this.runState.status = 'failed';
       }
     } else if (failed.length > 0) {
       this.runState.status = 'failed';
@@ -454,9 +406,6 @@ export class Orchestrator {
         } else {
           console.log(chalk.cyan(`   ▶ Started: #${event.issueNumber}`));
         }
-        if (this.labelManager) {
-          await this.labelManager.markInProgress(event.issueNumber!);
-        }
         this.updateTaskStatus(event.issueNumber!, 'in-progress');
         break;
 
@@ -466,9 +415,6 @@ export class Orchestrator {
         } else {
           console.log(chalk.green(`   ✓ Completed: #${event.issueNumber}`));
         }
-        if (this.labelManager) {
-          await this.labelManager.markDone(event.issueNumber!);
-        }
         this.updateTaskStatus(event.issueNumber!, 'completed', event.commits);
         break;
 
@@ -477,15 +423,6 @@ export class Orchestrator {
           this.progressDisplay.handleEvent({ type: 'issue-failed', issueNumber: event.issueNumber!, error: event.error || 'Unknown error' });
         } else {
           console.log(chalk.red(`   ✗ Failed: #${event.issueNumber} - ${event.error}`));
-        }
-        if (this.labelManager) {
-          await this.labelManager.markFailed(event.issueNumber!);
-        }
-        if (this.githubClient) {
-          await this.githubClient.addComment(
-            event.issueNumber!,
-            `❌ Millhouse failed to implement this issue:\n\n\`\`\`\n${event.error}\n\`\`\``
-          );
         }
         this.updateTaskStatus(event.issueNumber!, 'failed', undefined, event.error);
         break;
@@ -536,48 +473,5 @@ export class Orchestrator {
         task.error = error;
       }
     }
-  }
-
-  /**
-   * Create the final pull request.
-   */
-  private async createFinalPR(
-    runId: string,
-    runBranch: string,
-    issues: AnalyzedIssue[],
-    completedIssues: number[]
-  ): Promise<string> {
-    const completedSet = new Set(completedIssues);
-    const completed = issues.filter(i => completedSet.has(i.number));
-
-    const title = completed.length === 1
-      ? `Fix #${completed[0].number}: ${completed[0].title}`
-      : `Millhouse: Implement ${completed.length} issues`;
-
-    const issueList = completed
-      .map(i => `- Fixes #${i.number}: ${i.title}`)
-      .join('\n');
-
-    const body = `## Summary
-
-This PR implements the following issues:
-
-${issueList}
-
-## Details
-
-Run ID: \`${runId}\`
-Branch: \`${runBranch}\`
-
----
-🤖 Generated by [Millhouse](https://github.com/dave/millhouse)`;
-
-    return this.githubClient!.createPullRequest({
-      title,
-      body,
-      head: runBranch,
-      base: this.config.execution.baseBranch,
-      draft: this.config.pullRequests.createAsDraft,
-    });
   }
 }

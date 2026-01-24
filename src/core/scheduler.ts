@@ -23,6 +23,7 @@ export class Scheduler extends EventEmitter {
   private failed: Set<number> = new Set();
   private running: Map<number, TaskExecution> = new Map();
   private blocked: Set<number> = new Set();
+  private aborted: boolean = false;
 
   constructor(options: SchedulerOptions) {
     super();
@@ -38,6 +39,7 @@ export class Scheduler extends EventEmitter {
     this.completed = new Set(completed);
     this.failed = new Set(failed);
     this.running = new Map();
+    this.aborted = false;
 
     // Identify initially blocked issues
     const allIssues = graph.getAllIssues();
@@ -60,6 +62,9 @@ export class Scheduler extends EventEmitter {
   getReadyTasks(): number[] {
     if (!this.graph) return [];
 
+    // If aborted, don't start any new tasks
+    if (this.aborted) return [];
+
     const ready = this.graph.getReady(Array.from(this.completed));
 
     // Filter out already running, failed, and blocked-by-failed tasks
@@ -67,15 +72,41 @@ export class Scheduler extends EventEmitter {
       if (this.running.has(issue)) return false;
       if (this.failed.has(issue)) return false;
 
-      // Check if blocked by a failed dependency
-      const deps = this.graph!.getDependencies(issue);
-      const hasFailedDep = deps.some(d => this.failed.has(d));
-      if (hasFailedDep && !this.continueOnError) {
+      // Check if blocked by a failed dependency (never run if dependency failed)
+      if (this.isBlockedByFailure(issue)) {
         return false;
       }
 
       return true;
     });
+  }
+
+  /**
+   * Check if a task is blocked by a failed dependency (directly or transitively).
+   */
+  private isBlockedByFailure(issue: number): boolean {
+    if (!this.graph) return false;
+
+    const visited = new Set<number>();
+    const stack = [issue];
+
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      if (visited.has(current)) continue;
+      visited.add(current);
+
+      const deps = this.graph.getDependencies(current);
+      for (const dep of deps) {
+        if (this.failed.has(dep)) {
+          return true;
+        }
+        if (!this.completed.has(dep)) {
+          stack.push(dep);
+        }
+      }
+    }
+
+    return false;
   }
 
   /**
@@ -86,10 +117,15 @@ export class Scheduler extends EventEmitter {
   }
 
   /**
-   * Check if all tasks are complete (or failed if continueOnError is false).
+   * Check if all tasks are complete (or blocked by failures, or aborted).
    */
   isComplete(): boolean {
     if (!this.graph) return true;
+
+    // If aborted (continueOnError=false and a task failed), wait for running tasks then stop
+    if (this.aborted && this.running.size === 0) {
+      return true;
+    }
 
     const allIssues = this.graph.getAllIssues();
     const pending = allIssues.filter(i =>
@@ -103,12 +139,11 @@ export class Scheduler extends EventEmitter {
       return true;
     }
 
-    // If nothing running, check if all pending are blocked by failures
-    if (this.running.size === 0 && !this.continueOnError) {
-      // Check if any pending task is startable
+    // If nothing running, check if any task can still start
+    if (this.running.size === 0) {
       const ready = this.getReadyTasks();
       if (ready.length === 0) {
-        return true; // Deadlocked by failures
+        return true; // All remaining tasks are blocked (by deps or failures)
       }
     }
 
@@ -203,6 +238,11 @@ export class Scheduler extends EventEmitter {
         issueNumber,
         error: result.error || 'Unknown error',
       } as SchedulerEvent);
+
+      // If continueOnError is false, abort after this failure
+      if (!this.continueOnError) {
+        this.aborted = true;
+      }
     }
   }
 
@@ -258,6 +298,9 @@ export class Scheduler extends EventEmitter {
         statuses.set(issue, 'failed');
       } else if (this.running.has(issue)) {
         statuses.set(issue, 'in-progress');
+      } else if (this.isBlockedByFailure(issue)) {
+        // Blocked by a failed dependency - will never run
+        statuses.set(issue, 'blocked');
       } else if (this.blocked.has(issue)) {
         statuses.set(issue, 'blocked');
       } else {

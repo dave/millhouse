@@ -1,45 +1,54 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { runPlanCommand, runIssuesCommand } from './cli/commands/run.js';
+import { initCommand } from './cli/commands/init.js';
+import { listCommand } from './cli/commands/list.js';
+import { runCommand } from './cli/commands/run.js';
+import { saveCommand } from './cli/commands/save.js';
+import { loadCommand } from './cli/commands/load.js';
 import { statusCommand } from './cli/commands/status.js';
 import { resumeCommand } from './cli/commands/resume.js';
-import { setupCommand } from './cli/commands/setup.js';
 import { cleanCommand } from './cli/commands/clean.js';
 
 const program = new Command();
 
 program
   .name('millhouse')
-  .description('Orchestrates multiple parallel Claude Code instances to work on GitHub issues or JSON plans')
-  .version('0.1.0')
-  .enablePositionalOptions();
+  .description('Orchestrate parallel Claude Code instances to implement work items')
+  .version('0.4.0');
 
-// Main run command - defaults to plan mode
-const runCmd = program
+program
+  .command('init')
+  .description('Create worklist from the latest plan in ~/.claude/plans/')
+  .option('-f, --force', 'Overwrite existing worklist without prompting')
+  .action(initCommand);
+
+program
+  .command('list')
+  .description('Show items in the current worklist')
+  .option('-v, --verbose', 'Show full item descriptions')
+  .action(listCommand);
+
+program
   .command('run')
-  .description('Execute a JSON plan (default) or GitHub issues')
-  .argument('[name]', 'Plan name (loads millhouse-plan-{name}.json, or millhouse-plan.json if omitted)')
+  .description('Execute pending worklist items')
   .option('-n, --concurrency <number>', 'Number of parallel workers', '8')
   .option('-d, --display <mode>', 'Display mode: compact or detailed', 'compact')
   .option('--dry-run', 'Analyze and plan without executing')
   .option('--no-scan', 'Skip project structure scanning')
   .option('--dangerously-skip-permissions', 'Skip permission prompts in spawned Claude instances')
-  .enablePositionalOptions()
-  .passThroughOptions()
-  .action(runPlanCommand);
+  .action(runCommand);
 
-// Subcommand for GitHub issues mode
-runCmd
-  .command('issues')
-  .description('Execute GitHub issues')
-  .argument('[numbers]', 'Comma-separated issue numbers (omit to run all open issues)')
-  .option('-n, --concurrency <number>', 'Number of parallel workers', '8')
-  .option('-d, --display <mode>', 'Display mode: compact or detailed', 'compact')
-  .option('--dry-run', 'Analyze and plan without executing')
-  .option('--no-scan', 'Skip project structure scanning')
-  .option('--dangerously-skip-permissions', 'Skip permission prompts in spawned Claude instances')
-  .action(runIssuesCommand);
+program
+  .command('save')
+  .description('Create GitHub issues from worklist')
+  .action(saveCommand);
+
+program
+  .command('load')
+  .description('Load GitHub issues into worklist')
+  .argument('[issues]', 'Comma-separated issue numbers (omit to load all open issues)')
+  .action(loadCommand);
 
 program
   .command('status')
@@ -53,12 +62,6 @@ program
   .description('Resume an interrupted run')
   .argument('<run-id>', 'The run ID to resume')
   .action(resumeCommand);
-
-program
-  .command('setup')
-  .description('Install Claude Code slash commands')
-  .option('-g, --global', 'Install to ~/.claude/commands/ instead of ./.claude/commands/')
-  .action(setupCommand);
 
 program
   .command('clean')

@@ -1,52 +1,52 @@
-IMPORTANT: Your response must be ONLY a valid JSON array. No explanations, no markdown, no other text.
+Break this plan into discrete work items for parallel execution.
 
-Break this plan into discrete work items for parallel execution:
+## Plan
 
 {{plan}}
 
 ---
 
+## Your Task
+
+1. Use Read, Glob, and Grep tools to explore the codebase
+2. Output a JSON array of work items
+
+**DO NOT use TodoWrite, TaskCreate, or any task/todo tools. Only use Read, Glob, Grep, and Bash.**
+
 ## Context
 
-These work items will be executed by **parallel Claude Code instances**, each running **unattended in its own isolated context**. This means:
-- Each item runs in a fresh context with no memory of other items
-- Items must be completely self-contained with ALL context needed
-- Nothing can be assumed or left implicit
-- Multiple items with no dependencies run simultaneously
+Work items will be executed by parallel Claude instances in isolated contexts. Each item must be completely self-contained with all information needed.
 
-## Guidelines
+## Work Item Guidelines
 
-**1. Size appropriately**
-- Each item should be completable in one unattended session
-- "Create an entire application" is too big - break it down
-- "Add a single line" might be too small unless it's a dependency
-
-**2. Make self-contained**
-- Include ALL implementation details in the body
-- Specify exact file paths to create or modify
-- Include function signatures, types, interfaces
-- Don't reference "the previous task" - include the context
-
-**3. Include in the body**
-- Implementation details with file paths
-- Testing instructions (specific commands)
-- Acceptance criteria (how to verify completion)
-- `**Depends on #N**` for any dependencies
-
-**4. Identify dependencies**
-- Which items must complete before this one can start?
+- Each item should be completable in one session
+- Include exact file paths, function signatures, patterns to follow
+- Use `"dependencies": [1, 2]` for prerequisite items
 - Only add dependencies that are truly required
-- More independent items = more parallelism
 
 ---
 
-Output a JSON array where each item has:
-- "id": number (starting from 1)
-- "title": string (short title)
-- "body": string (full implementation details, file paths, acceptance criteria)
-- "dependencies": number[] (IDs of prerequisite work items)
+## Required Output Format
 
-RESPOND WITH ONLY THE JSON ARRAY. Example format:
-[{"id":1,"title":"First task","body":"Details...","dependencies":[]},{"id":2,"title":"Second task","body":"Details...","dependencies":[1]}]
+After exploring the codebase, output ONLY a JSON array. No other text after the JSON.
 
-DO NOT include any text before or after the JSON. DO NOT use markdown code blocks. ONLY output the JSON array.
+Use \n for newlines in body text. Keep body content concise.
+
+```json
+[
+  {
+    "id": 1,
+    "title": "Short title",
+    "body": "Implementation details. File: src/foo.ts. Pattern: follow existing style.",
+    "dependencies": []
+  },
+  {
+    "id": 2,
+    "title": "Another task",
+    "body": "More details here.",
+    "dependencies": [1]
+  }
+]
+```
+
+The JSON must be valid. Use \n for newlines, escape quotes with backslash.

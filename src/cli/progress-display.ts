@@ -29,8 +29,6 @@ export class ProgressDisplay {
   private resizeHandler: (() => void) | null = null;
   private isRunning = false;
   private logHistory: Array<{ issueNumber: number; message: string }> = [];
-  private renderTimeout: NodeJS.Timeout | null = null;
-  private renderScheduled = false;
 
   constructor(options?: { displayMode?: 'compact' | 'detailed' }) {
     if (options?.displayMode === 'detailed') {
@@ -118,13 +116,10 @@ export class ProgressDisplay {
       process.stdin.on('data', this.keyHandler);
     }
 
-    // Listen for terminal resize to re-render with new width
+    // Listen for terminal resize
     if (process.stdout.isTTY) {
       this.resizeHandler = () => {
         if (this.compactMode && this.isRunning) {
-          // Just re-render with new width - some garbage may remain briefly
-          // from previously wrapped lines, but it's better than clearing
-          // useful content above the progress display
           this.render();
         }
       };
@@ -143,12 +138,6 @@ export class ProgressDisplay {
    */
   stop(): void {
     this.isRunning = false;
-
-    // Clear any pending render
-    if (this.renderTimeout) {
-      clearTimeout(this.renderTimeout);
-      this.renderTimeout = null;
-    }
 
     if (process.stdin.isTTY) {
       if (this.keyHandler) {
@@ -267,7 +256,7 @@ export class ProgressDisplay {
     }
 
     if (this.compactMode && this.isRunning) {
-      this.scheduleRender();
+      this.render();
     } else if (!this.compactMode && this.isRunning) {
       this.renderDetailedEvent(event);
     }
@@ -289,7 +278,7 @@ export class ProgressDisplay {
     if (issue) {
       issue.latestMessage = this.truncateMessage(message);
       if (this.compactMode && this.isRunning) {
-        this.scheduleRender();
+        this.render();
       }
     }
   }
@@ -298,136 +287,141 @@ export class ProgressDisplay {
    * Truncate a message to fit on one line.
    */
   private truncateMessage(message: string): string {
-    // Remove newlines and trim - actual length truncation happens in doRender based on terminal width
-    return message.replace(/\n/g, ' ').trim();
+    // Remove newlines and trim
+    const clean = message.replace(/\n/g, ' ').trim();
+    const maxLen = 60;
+    if (clean.length <= maxLen) return clean;
+    return clean.slice(0, maxLen - 3) + '...';
   }
 
   /**
-   * Truncate a string to fit within maxWidth terminal columns.
-   * Uses string-width to correctly handle ANSI codes and wide characters.
-   */
-  private truncateToWidth(str: string, maxWidth: number): string {
-    if (stringWidth(str) <= maxWidth) {
-      return str;
-    }
-
-    // Need to truncate - rebuild string character by character
-    let result = '';
-    let i = 0;
-
-    while (i < str.length) {
-      // Check for ANSI escape sequence
-      if (str[i] === '\x1B' && str[i + 1] === '[') {
-        // Find end of escape sequence
-        let j = i + 2;
-        while (j < str.length && str[j] !== 'm') {
-          j++;
-        }
-        // Include the 'm' and add to result (doesn't affect width)
-        result += str.slice(i, j + 1);
-        i = j + 1;
-      } else {
-        // Check if adding this character would exceed width (leaving room for ...)
-        const charWidth = stringWidth(str[i]);
-        if (stringWidth(result) + charWidth > maxWidth - 3) {
-          break;
-        }
-        result += str[i];
-        i++;
-      }
-    }
-
-    return result + '...';
-  }
-
-  /**
-   * Clear previously rendered lines (used when switching modes).
+   * Clear previously rendered lines (for mode switches).
    */
   private clearLines(): void {
     if (this.lastRenderLines > 0) {
-      process.stdout.write(`\r\x1B[${this.lastRenderLines}A\x1B[J`);
+      // Move cursor up and clear everything below
+      process.stdout.write(`\x1B[${this.lastRenderLines}A\x1B[J`);
       this.lastRenderLines = 0;
     }
   }
 
   /**
-   * Schedule a render. Throttled to prevent overwhelming the terminal.
+   * Render the compact view.
    */
-  private scheduleRender(): void {
-    if (this.renderScheduled) return;
-    this.renderScheduled = true;
+  private render(): void {
+    // Get terminal width (leave margin for safety)
+    const termWidth = (process.stdout.columns || 80) - 2;
 
-    // Use setImmediate for first render, then throttle subsequent renders
-    if (this.renderTimeout) {
-      clearTimeout(this.renderTimeout);
-    }
-
-    this.renderTimeout = setTimeout(() => {
-      this.renderScheduled = false;
-      this.renderTimeout = null;
-      this.doRender();
-    }, 50); // 50ms throttle
-  }
-
-  /**
-   * Actually render the compact view.
-   */
-  private doRender(): void {
-    // Build the complete output with clear codes in a single string
+    // Build output string
     let output = '';
 
-    // Clear previous render if we have one
+    // Move cursor up to overwrite previous render
     if (this.lastRenderLines > 0) {
-      // Move to start of line
-      output += '\r';
-      // Move cursor up to start of render area
       output += `\x1B[${this.lastRenderLines}A`;
-      // Clear from cursor to end of screen
-      output += '\x1B[J';
     }
 
-    // Get terminal width for truncation (default to 80 if unavailable)
-    const termWidth = process.stdout.columns || 80;
-
-    // Build the new content
-    const lines: string[] = [];
-
+    let lineCount = 0;
     for (const issueNumber of this.issueOrder) {
       const issue = this.issues.get(issueNumber);
       if (!issue) continue;
 
-      const stateIcon = this.getStateIcon(issue.state);
-      const stateColor = this.getStateColor(issue.state);
+      // Build line with truncation based on available width
+      const line = this.buildLine(issue, termWidth);
 
-      // Truncate title to max 30 chars
-      const titleShort = issue.title.length > 30
-        ? issue.title.slice(0, 27) + '...'
-        : issue.title;
-
-      // Build the full line, then truncate to terminal width
-      const fullLine = `${stateIcon} ${stateColor(`#${issue.number}`)} ${chalk.gray(titleShort)} ${chalk.dim('│')} ${issue.latestMessage}`;
-      const line = this.truncateToWidth(fullLine, termWidth - 1);
-
-      lines.push(line);
+      // Write line, clear to end of line, then newline
+      output += '\r' + line + '\x1B[K\n';
+      lineCount++;
     }
 
-    output += lines.join('\n') + '\n';
+    // Clear any remaining old lines below
+    output += '\x1B[J';
 
-    // Single atomic write
     process.stdout.write(output);
-    this.lastRenderLines = lines.length;
+    this.lastRenderLines = lineCount;
   }
 
   /**
-   * Render immediately (used for initial render and final render).
+   * Build a single display line, truncated to fit maxWidth.
    */
-  private render(): void {
-    if (this.renderTimeout) {
-      clearTimeout(this.renderTimeout);
-      this.renderTimeout = null;
+  private buildLine(issue: IssueProgress, maxWidth: number): string {
+    const stateIcon = this.getStateIcon(issue.state);
+    const stateColor = this.getStateColor(issue.state);
+    const numStr = `#${issue.number}`;
+    const separator = ' │ ';
+
+    // Measure fixed parts using stringWidth (handles wide chars like ● and │)
+    const iconWidth = stringWidth(stateIcon);
+    const numWidth = stringWidth(numStr);
+    const sepWidth = stringWidth(separator);
+    const spacesWidth = 2; // spaces between parts
+
+    const fixedWidth = iconWidth + spacesWidth + numWidth + sepWidth;
+
+    // Remaining width for title + message
+    const remainingWidth = maxWidth - fixedWidth;
+
+    if (remainingWidth < 15) {
+      // Terminal too narrow, just show icon and number
+      return `${stateIcon} ${stateColor(numStr)}`;
     }
-    this.renderScheduled = false;
-    this.doRender();
+
+    // Split remaining space: give title up to 30 chars, rest to message
+    const titleMaxWidth = Math.min(30, Math.floor(remainingWidth * 0.5));
+    const msgMaxWidth = remainingWidth - titleMaxWidth - 1; // -1 for space after title
+
+    // Truncate title (plain text, then color)
+    let title = issue.title;
+    if (title.length > titleMaxWidth) {
+      title = title.slice(0, titleMaxWidth - 3) + '...';
+    }
+
+    // Truncate message (plain text)
+    let msg = issue.latestMessage.replace(/\n/g, ' ').trim();
+    if (msg.length > msgMaxWidth) {
+      msg = msg.slice(0, msgMaxWidth - 3) + '...';
+    }
+
+    const line = `${stateIcon} ${stateColor(numStr)} ${chalk.gray(title)} ${chalk.dim('│')} ${msg}`;
+
+    // Final safety check - if still too wide, hard truncate
+    if (stringWidth(line) > maxWidth) {
+      return this.hardTruncate(line, maxWidth);
+    }
+
+    return line;
+  }
+
+  /**
+   * Hard truncate a string (with ANSI codes) to maxWidth.
+   */
+  private hardTruncate(str: string, maxWidth: number): string {
+    if (stringWidth(str) <= maxWidth) {
+      return str;
+    }
+
+    let result = '';
+    let width = 0;
+    let i = 0;
+
+    while (i < str.length && width < maxWidth - 3) {
+      if (str[i] === '\x1B') {
+        // ANSI escape - find the end and include it
+        let j = i + 1;
+        while (j < str.length && str[j] !== 'm') {
+          j++;
+        }
+        result += str.slice(i, j + 1);
+        i = j + 1;
+      } else {
+        const cw = stringWidth(str[i]);
+        if (width + cw > maxWidth - 3) break;
+        result += str[i];
+        width += cw;
+        i++;
+      }
+    }
+
+    return result + '...\x1B[0m';
   }
 
   /**

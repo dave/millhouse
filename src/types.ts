@@ -38,6 +38,7 @@ export interface AnalyzedIssue extends GitHubIssue {
   affectedPaths: string[];
   dependencies: number[]; // Issue numbers this depends on
   analyzedAt: string;
+  githubIssueNumber?: number;  // Original GitHub issue number (for commit messages)
 }
 
 // Convert AnalyzedIssue to AnalyzedWorkItem
@@ -117,16 +118,31 @@ export const ConfigSchema = z.object({
 
 export type Config = z.infer<typeof ConfigSchema>;
 
-// Millhouse labels
-export const MILLHOUSE_LABELS = {
-  QUEUED: 'millhouse:queued',
-  IN_PROGRESS: 'millhouse:in-progress',
-  BLOCKED: 'millhouse:blocked',
-  FAILED: 'millhouse:failed',
-  DONE: 'millhouse:done',
-} as const;
+// =============================================================================
+// Worklist format (local task management)
+// =============================================================================
 
-export type MillhouseLabel = typeof MILLHOUSE_LABELS[keyof typeof MILLHOUSE_LABELS];
+export type WorklistItemStatus = 'pending' | 'completed' | 'failed';
+
+export interface WorklistItem {
+  id: number;
+  title: string;
+  body: string;
+  dependencies: number[];
+  status: WorklistItemStatus;
+  githubIssueNumber?: number;  // Set by save/load commands
+  startedAt?: string;
+  completedAt?: string;
+  error?: string;
+}
+
+export interface Worklist {
+  version: 1;
+  createdAt: string;
+  updatedAt: string;
+  source: 'plan' | 'github';
+  items: WorklistItem[];
+}
 
 // Event types for scheduler
 export type SchedulerEvent =

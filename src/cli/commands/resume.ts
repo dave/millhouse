@@ -3,10 +3,6 @@ import ora from 'ora';
 import { Orchestrator } from '../../core/orchestrator.js';
 import { loadConfig } from '../../storage/config.js';
 import { JsonStore } from '../../storage/json-store.js';
-import { GitHubClient } from '../../github/client.js';
-import { LabelManager } from '../../github/label-manager.js';
-import { IssueDiscoverer } from '../../github/issue-discoverer.js';
-import { IssueAnalyzer } from '../../analysis/issue-analyzer.js';
 import { GraphBuilder } from '../../analysis/graph-builder.js';
 import { WorktreeManager } from '../../execution/worktree-manager.js';
 import { ClaudeRunner } from '../../execution/claude-runner.js';
@@ -53,13 +49,6 @@ export async function resumeCommand(runId: string): Promise<void> {
       continueOnError: config.execution.continueOnError,
     });
 
-    // Only initialize GitHub components for GitHub mode runs
-    const isGitHubMode = runState.mode === 'github';
-    const githubClient = isGitHubMode ? new GitHubClient() : undefined;
-    const labelManager = isGitHubMode && githubClient ? new LabelManager(githubClient) : undefined;
-    const issueDiscoverer = isGitHubMode && githubClient ? new IssueDiscoverer(githubClient) : undefined;
-    const issueAnalyzer = isGitHubMode ? new IssueAnalyzer() : undefined;
-
     // Create orchestrator
     const orchestrator = new Orchestrator({
       config,
@@ -69,12 +58,6 @@ export async function resumeCommand(runId: string): Promise<void> {
       claudeRunner,
       scheduler,
       progressDisplay,
-      ...(isGitHubMode && {
-        githubClient,
-        labelManager,
-        issueDiscoverer,
-        issueAnalyzer,
-      }),
     });
 
     spinner.succeed('Loaded');
@@ -109,10 +92,7 @@ export async function resumeCommand(runId: string): Promise<void> {
     const result = await orchestrator.resume(runState);
 
     if (result.status === 'completed') {
-      console.log(chalk.green('\n✅ All issues completed successfully!'));
-      if (result.pullRequestUrl) {
-        console.log(chalk.blue(`   Pull request: ${result.pullRequestUrl}`));
-      }
+      console.log(chalk.green('\n✅ All items completed successfully!'));
     } else if (result.status === 'failed') {
       console.log(chalk.red(`\n❌ Run failed: ${result.error}`));
       process.exit(1);
