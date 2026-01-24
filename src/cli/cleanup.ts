@@ -37,7 +37,7 @@ export async function detectLeftoverState(basePath: string = process.cwd()): Pro
       if (file.endsWith('.json')) {
         const content = await fs.readFile(path.join(runsDir, file), 'utf-8');
         const run = JSON.parse(content) as RunState;
-        if (run.status === 'running' || run.status === 'interrupted') {
+        if (run.status === 'running' || run.status === 'interrupted' || run.status === 'failed') {
           result.interruptedRuns.push(run);
         }
       }
