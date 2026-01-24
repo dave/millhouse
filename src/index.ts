@@ -18,8 +18,8 @@ program
 // Main run command - defaults to plan mode
 const runCmd = program
   .command('run')
-  .description('Execute a plan file (default) or GitHub issues')
-  .argument('[plan]', 'Path to plan file (omit to use latest from ~/.claude/plans/)')
+  .description('Execute a JSON plan (default) or GitHub issues')
+  .argument('[name]', 'Plan name (loads millhouse-plan-{name}.json, or millhouse-plan.json if omitted)')
   .option('-n, --concurrency <number>', 'Number of parallel workers', '8')
   .option('-d, --display <mode>', 'Display mode: compact or detailed', 'compact')
   .option('--dry-run', 'Analyze and plan without executing')
