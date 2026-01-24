@@ -13,21 +13,38 @@ Parse $ARGUMENTS to determine the subcommand:
 
 ## /millhouse plan
 
-**Your ONLY job: Convert the current plan to JSON format and write it to a file.**
+Convert a markdown plan to JSON and write `millhouse-plan.json`.
 
-Do NOT evaluate whether the plan is "ready" or "good enough". Do NOT skip writing the file. ALWAYS write the JSON file.
+**Output file:** `millhouse-plan.json` (or `millhouse-plan-{name}.json` if name argument given)
 
-**Arguments:**
-- `[name]` - Optional name for the output JSON file.
-  - `/millhouse plan` → write `millhouse-plan.json`
-  - `/millhouse plan foo` → write `millhouse-plan-foo.json`
+**Output format:** JSON (not markdown!)
 
 ### Instructions
 
-1. Find the current plan in this conversation (check ~/.claude/plans/ or recent messages)
-2. If no plan exists, output an error: "No plan found in conversation" and stop
-3. Convert the plan to JSON format (see format below)
-4. **ALWAYS write the JSON file using the Write tool** - this is required, not optional
+1. Find the plan in ~/.claude/plans/ (most recent .md file)
+2. Parse each task/section into a JSON work item
+3. Write the JSON file to the project root:
+
+```
+Write millhouse-plan.json with content:
+{
+  "version": 1,
+  "createdAt": "<ISO timestamp>",
+  "items": [
+    {"id": 1, "title": "...", "body": "...", "dependencies": []},
+    {"id": 2, "title": "...", "body": "...", "dependencies": [1]}
+  ]
+}
+```
+
+**DO NOT:**
+- Copy the markdown file
+- Say "the plan is already ready"
+- Skip writing the JSON file
+
+**DO:**
+- Parse the markdown into JSON structure
+- Write `millhouse-plan.json` with the JSON content
 
 ### Context for work items
 
@@ -86,12 +103,13 @@ Save to `millhouse-plan.json` (or `millhouse-plan-{name}.json` if name provided)
 }
 ```
 
-### CRITICAL
+### Checklist before finishing
 
-- **ALWAYS write the JSON file** - this is the entire point of this command
-- **Never skip writing** - even if the plan "looks ready", you must write the JSON
-- **Don't evaluate** - don't say "the plan is already good" - just convert and write
-- **Be non-interactive** - don't ask questions, just convert and write the file
+- [ ] Did you write a file named `millhouse-plan.json`?
+- [ ] Is the file content JSON (not markdown)?
+- [ ] Does it have `"version": 1` and an `"items"` array?
+
+If any answer is NO, go back and fix it.
 
 ---
 
