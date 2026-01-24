@@ -1,6 +1,6 @@
 {
   "name": "millhouse",
-  "version": "0.5.0",
+  "version": "1.0.0",
   "description": "Orchestrate parallel Claude Code instances to implement work items",
   "type": "module",
   "main": "dist/index.js",
