@@ -34,10 +34,6 @@ export async function resumeCommand(runId: string): Promise<void> {
 
     // Initialize components
     spinner.text = 'Initializing components...';
-    const githubClient = new GitHubClient();
-    const labelManager = new LabelManager(githubClient);
-    const issueDiscoverer = new IssueDiscoverer(githubClient);
-    const issueAnalyzer = new IssueAnalyzer();
     const graphBuilder = new GraphBuilder();
     const worktreeManager = new WorktreeManager();
     const claudeRunner = new ClaudeRunner(config);
@@ -48,18 +44,27 @@ export async function resumeCommand(runId: string): Promise<void> {
       continueOnError: config.execution.continueOnError,
     });
 
+    // Only initialize GitHub components for GitHub mode runs
+    const isGitHubMode = runState.mode === 'github';
+    const githubClient = isGitHubMode ? new GitHubClient() : undefined;
+    const labelManager = isGitHubMode && githubClient ? new LabelManager(githubClient) : undefined;
+    const issueDiscoverer = isGitHubMode && githubClient ? new IssueDiscoverer(githubClient) : undefined;
+    const issueAnalyzer = isGitHubMode ? new IssueAnalyzer() : undefined;
+
     // Create orchestrator
     const orchestrator = new Orchestrator({
       config,
       store,
-      githubClient,
-      labelManager,
-      issueDiscoverer,
-      issueAnalyzer,
       graphBuilder,
       worktreeManager,
       claudeRunner,
       scheduler,
+      ...(isGitHubMode && {
+        githubClient,
+        labelManager,
+        issueDiscoverer,
+        issueAnalyzer,
+      }),
     });
 
     spinner.succeed('Loaded');

@@ -79,6 +79,7 @@ export interface RunState {
   createdAt: string;
   updatedAt: string;
   status: 'running' | 'completed' | 'failed' | 'interrupted';
+  mode?: 'plan' | 'github';  // Optional for backwards compatibility with old runs
   baseBranch: string;
   runBranch: string;
   issues: AnalyzedIssue[];

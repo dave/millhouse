@@ -181,6 +181,7 @@ export class Orchestrator {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       status: 'running',
+      mode: this.githubClient ? 'github' : 'plan',
       baseBranch,
       runBranch,
       issues: analyzedIssues,
