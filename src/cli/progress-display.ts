@@ -27,7 +27,6 @@ export class ProgressDisplay {
   private lastRenderLines = 0;
   private keyHandler: ((key: Buffer) => void) | null = null;
   private resizeHandler: (() => void) | null = null;
-  private resizeTimeout: NodeJS.Timeout | null = null;
   private isRunning = false;
   private logHistory: Array<{ issueNumber: number; message: string }> = [];
   private renderTimeout: NodeJS.Timeout | null = null;
@@ -120,19 +119,13 @@ export class ProgressDisplay {
     }
 
     // Listen for terminal resize to re-render with new width
-    // Debounce to avoid issues during fast resize
     if (process.stdout.isTTY) {
       this.resizeHandler = () => {
         if (this.compactMode && this.isRunning) {
-          // Clear any pending resize render
-          if (this.resizeTimeout) {
-            clearTimeout(this.resizeTimeout);
-          }
-          // Wait for resize to settle before re-rendering
-          this.resizeTimeout = setTimeout(() => {
-            this.resizeTimeout = null;
-            this.render();
-          }, 150);
+          // Just re-render with new width - some garbage may remain briefly
+          // from previously wrapped lines, but it's better than clearing
+          // useful content above the progress display
+          this.render();
         }
       };
       process.stdout.on('resize', this.resizeHandler);
@@ -155,10 +148,6 @@ export class ProgressDisplay {
     if (this.renderTimeout) {
       clearTimeout(this.renderTimeout);
       this.renderTimeout = null;
-    }
-    if (this.resizeTimeout) {
-      clearTimeout(this.resizeTimeout);
-      this.resizeTimeout = null;
     }
 
     if (process.stdin.isTTY) {
