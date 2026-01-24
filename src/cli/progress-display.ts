@@ -302,6 +302,57 @@ export class ProgressDisplay {
   }
 
   /**
+   * Strip ANSI escape codes from a string to get visible length.
+   */
+  private stripAnsi(str: string): string {
+    // eslint-disable-next-line no-control-regex
+    return str.replace(/\x1B\[[0-9;]*m/g, '');
+  }
+
+  /**
+   * Get visible width of a string (excluding ANSI codes).
+   */
+  private visibleWidth(str: string): number {
+    return this.stripAnsi(str).length;
+  }
+
+  /**
+   * Truncate a string to fit within maxWidth visible characters.
+   * Handles ANSI codes by preserving them but truncating visible content.
+   */
+  private truncateToWidth(str: string, maxWidth: number): string {
+    const visible = this.stripAnsi(str);
+    if (visible.length <= maxWidth) {
+      return str;
+    }
+
+    // Need to truncate - rebuild string character by character
+    let result = '';
+    let visibleCount = 0;
+    let i = 0;
+
+    while (i < str.length && visibleCount < maxWidth - 3) {
+      // Check for ANSI escape sequence
+      if (str[i] === '\x1B' && str[i + 1] === '[') {
+        // Find end of escape sequence
+        let j = i + 2;
+        while (j < str.length && str[j] !== 'm') {
+          j++;
+        }
+        // Include the 'm'
+        result += str.slice(i, j + 1);
+        i = j + 1;
+      } else {
+        result += str[i];
+        visibleCount++;
+        i++;
+      }
+    }
+
+    return result + '...';
+  }
+
+  /**
    * Clear previously rendered lines (used when switching modes).
    */
   private clearLines(): void {
@@ -359,20 +410,39 @@ export class ProgressDisplay {
 
       const stateIcon = this.getStateIcon(issue.state);
       const stateColor = this.getStateColor(issue.state);
-      const titleShort = issue.title.length > 30
-        ? issue.title.slice(0, 27) + '...'
-        : issue.title;
 
-      // Calculate available space for message
-      // Format: "● #N Title... │ Message"
-      // Icon(1) + space(1) + #N(~4) + space(1) + title(30) + space+│+space(3) = ~40 chars prefix
-      const prefixLen = 40;
-      const maxMessageLen = Math.max(10, termWidth - prefixLen);
-      const messageTrunc = issue.latestMessage.length > maxMessageLen
-        ? issue.latestMessage.slice(0, maxMessageLen - 3) + '...'
+      // Build prefix: "● #N Title │ "
+      const issueNumStr = `#${issue.number}`;
+      const separator = ' │ ';
+
+      // Calculate how much space we have for title + message
+      // Format: "● #N Title │ Message"
+      const prefixWidth = 2 + issueNumStr.length + 1; // icon + space + #N + space
+      const separatorWidth = 3; // " │ "
+      const availableForContent = termWidth - prefixWidth - separatorWidth;
+
+      // Split available space: ~60% for title, ~40% for message (minimum 10 each)
+      const titleMaxWidth = Math.max(10, Math.floor(availableForContent * 0.6));
+      const messageMaxWidth = Math.max(10, availableForContent - titleMaxWidth);
+
+      // Truncate title
+      const titleShort = issue.title.length > titleMaxWidth
+        ? issue.title.slice(0, titleMaxWidth - 3) + '...'
+        : issue.title.padEnd(titleMaxWidth);
+
+      // Truncate message
+      const messageTrunc = issue.latestMessage.length > messageMaxWidth
+        ? issue.latestMessage.slice(0, messageMaxWidth - 3) + '...'
         : issue.latestMessage;
 
-      const line = `${stateIcon} ${stateColor(`#${issue.number}`)} ${chalk.gray(titleShort)} ${chalk.dim('│')} ${messageTrunc}`;
+      // Build the line
+      let line = `${stateIcon} ${stateColor(issueNumStr)} ${chalk.gray(titleShort)}${chalk.dim(separator)}${messageTrunc}`;
+
+      // Final safety truncation in case of edge cases
+      if (this.visibleWidth(line) > termWidth) {
+        line = this.truncateToWidth(line, termWidth);
+      }
+
       lines.push(line);
     }
 
