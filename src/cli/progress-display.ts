@@ -1,4 +1,5 @@
 import chalk from 'chalk';
+import stringWidth from 'string-width';
 import type { AnalyzedIssue } from '../types.js';
 
 export type IssueState = 'queued' | 'blocked' | 'running' | 'completed' | 'failed';
@@ -302,30 +303,19 @@ export class ProgressDisplay {
   }
 
   /**
-   * Strip ANSI escape codes from a string to get visible length.
-   */
-  private stripAnsi(str: string): string {
-    // eslint-disable-next-line no-control-regex
-    return str.replace(/\x1B\[[0-9;]*m/g, '');
-  }
-
-
-  /**
-   * Truncate a string to fit within maxWidth visible characters.
-   * Handles ANSI codes by preserving them but truncating visible content.
+   * Truncate a string to fit within maxWidth terminal columns.
+   * Uses string-width to correctly handle ANSI codes and wide characters.
    */
   private truncateToWidth(str: string, maxWidth: number): string {
-    const visible = this.stripAnsi(str);
-    if (visible.length <= maxWidth) {
+    if (stringWidth(str) <= maxWidth) {
       return str;
     }
 
     // Need to truncate - rebuild string character by character
     let result = '';
-    let visibleCount = 0;
     let i = 0;
 
-    while (i < str.length && visibleCount < maxWidth - 3) {
+    while (i < str.length) {
       // Check for ANSI escape sequence
       if (str[i] === '\x1B' && str[i + 1] === '[') {
         // Find end of escape sequence
@@ -333,12 +323,16 @@ export class ProgressDisplay {
         while (j < str.length && str[j] !== 'm') {
           j++;
         }
-        // Include the 'm'
+        // Include the 'm' and add to result (doesn't affect width)
         result += str.slice(i, j + 1);
         i = j + 1;
       } else {
+        // Check if adding this character would exceed width (leaving room for ...)
+        const charWidth = stringWidth(str[i]);
+        if (stringWidth(result) + charWidth > maxWidth - 3) {
+          break;
+        }
         result += str[i];
-        visibleCount++;
         i++;
       }
     }
