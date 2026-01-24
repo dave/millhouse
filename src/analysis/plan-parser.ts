@@ -52,13 +52,34 @@ export class PlanParser {
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
 
       // Parse JSON array from response
-      const jsonMatch = responseText.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) {
-        spinner.fail(`Plan analysis failed (${elapsed}s)`);
-        throw new Error('No JSON array found in response');
+      // Try to extract JSON from code blocks first, then raw
+      let jsonText: string | null = null;
+
+      // Try markdown code block (```json ... ``` or ``` ... ```)
+      const codeBlockMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (codeBlockMatch) {
+        const blockContent = codeBlockMatch[1].trim();
+        if (blockContent.startsWith('[')) {
+          jsonText = blockContent;
+        }
       }
 
-      const parsed = JSON.parse(jsonMatch[0]) as Array<{
+      // Fall back to finding raw JSON array
+      if (!jsonText) {
+        const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          jsonText = jsonMatch[0];
+        }
+      }
+
+      if (!jsonText) {
+        spinner.fail(`Plan analysis failed (${elapsed}s)`);
+        // Include first 500 chars of response for debugging
+        const preview = responseText.slice(0, 500);
+        throw new Error(`No JSON array found in response. Response preview: ${preview}`);
+      }
+
+      const parsed = JSON.parse(jsonText) as Array<{
         id: number;
         title: string;
         body: string;
