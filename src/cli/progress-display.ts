@@ -25,6 +25,7 @@ export class ProgressDisplay {
   private compactMode = true;
   private lastRenderLines = 0;
   private keyHandler: ((key: Buffer) => void) | null = null;
+  private resizeHandler: (() => void) | null = null;
   private isRunning = false;
   private logHistory: Array<{ issueNumber: number; message: string }> = [];
   private renderTimeout: NodeJS.Timeout | null = null;
@@ -116,6 +117,16 @@ export class ProgressDisplay {
       process.stdin.on('data', this.keyHandler);
     }
 
+    // Listen for terminal resize to re-render with new width
+    if (process.stdout.isTTY) {
+      this.resizeHandler = () => {
+        if (this.compactMode && this.isRunning) {
+          this.render();
+        }
+      };
+      process.stdout.on('resize', this.resizeHandler);
+    }
+
     // Initial render
     if (this.compactMode) {
       console.log(chalk.gray('Press [v] to toggle detailed view\n'));
@@ -142,6 +153,11 @@ export class ProgressDisplay {
       }
       process.stdin.setRawMode(false);
       process.stdin.pause();
+    }
+
+    if (process.stdout.isTTY && this.resizeHandler) {
+      process.stdout.removeListener('resize', this.resizeHandler);
+      this.resizeHandler = null;
     }
 
     // Clear and render final state
