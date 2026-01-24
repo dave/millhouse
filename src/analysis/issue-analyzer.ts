@@ -3,12 +3,20 @@ import { query } from '@anthropic-ai/claude-code';
 import type { GitHubIssue, AnalyzedIssue } from '../types.js';
 import { loadTemplate } from '../utils/template-loader.js';
 
+export interface IssueAnalysisResult {
+  title: string;
+  description: string;
+  issues: AnalyzedIssue[];
+}
+
 export class IssueAnalyzer {
   /**
    * Analyze all issues in a single Claude call to determine dependencies.
    */
-  async analyzeIssues(issues: GitHubIssue[]): Promise<AnalyzedIssue[]> {
-    if (issues.length === 0) return [];
+  async analyzeIssues(issues: GitHubIssue[]): Promise<IssueAnalysisResult> {
+    if (issues.length === 0) {
+      return { title: 'No Issues', description: 'No issues to analyze.', issues: [] };
+    }
 
     const allIssueNumbers = issues.map(i => i.number);
 
@@ -20,13 +28,17 @@ export class IssueAnalyzer {
     const template = await loadTemplate('issue-analysis.prompt.md');
     const prompt = template.replace('{{issuesList}}', issuesList);
 
-    console.log(chalk.gray(`   Analyzing ${issues.length} issues...`));
+    const startTime = Date.now();
+    console.log(chalk.blue('\nAnalyzing issues with Claude...\n'));
 
     try {
       const iterator = query({
         prompt,
         options: {
-          maxTurns: 10,
+          cwd: process.cwd(),
+          maxTurns: 20,
+          // Allow read-only tools for exploring the codebase
+          allowedTools: ['Read', 'Glob', 'Grep', 'Bash(git log*)', 'Bash(git show*)', 'Bash(ls*)'],
         },
       });
 
@@ -63,20 +75,40 @@ export class IssueAnalyzer {
         }
       }
 
-      // Parse JSON array from response
-      const jsonMatch = responseText.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) {
-        throw new Error('No JSON array found in response');
+      // Parse JSON from response - try object format first, then array
+      let parsedObj: {
+        title?: string;
+        description?: string;
+        issues: Array<{
+          issueNumber: number;
+          dependencies: number[];
+          affectedPaths: string[];
+          noWorkNeeded?: boolean;
+        }>;
+      };
+
+      // Try to find JSON object first (new format)
+      const objMatch = responseText.match(/\{[\s\S]*"issues"[\s\S]*\}/);
+      if (objMatch) {
+        parsedObj = JSON.parse(objMatch[0]);
+      } else {
+        // Fall back to array format (legacy)
+        const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+        if (!jsonMatch) {
+          throw new Error('No JSON found in response');
+        }
+        parsedObj = {
+          title: 'GitHub Issues',
+          description: 'Issues loaded from GitHub.',
+          issues: JSON.parse(jsonMatch[0]),
+        };
       }
 
-      const parsed = JSON.parse(jsonMatch[0]) as Array<{
-        issueNumber: number;
-        dependencies: number[];
-        affectedPaths: string[];
-      }>;
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      console.log(chalk.green(`\n✓ Issues analyzed (${elapsed}s)\n`));
 
       // Create a map for quick lookup
-      const analysisMap = new Map(parsed.map(p => [p.issueNumber, p]));
+      const analysisMap = new Map(parsedObj.issues.map(p => [p.issueNumber, p]));
 
       // Build analyzed issues
       const results: AnalyzedIssue[] = issues.map(issue => {
@@ -87,23 +119,31 @@ export class IssueAnalyzer {
           allIssueNumbers.includes(d) && d !== issue.number
         );
 
+        const noWorkNeeded = analysis?.noWorkNeeded || false;
+
         const analyzed: AnalyzedIssue = {
           ...issue,
           affectedPaths: analysis?.affectedPaths || [],
           dependencies: validDeps,
           analyzedAt: new Date().toISOString(),
+          noWorkNeeded,
         };
 
         // Log each issue's analysis
         const depsStr = validDeps.length > 0
           ? `depends on ${validDeps.map(d => `#${d}`).join(', ')}`
           : 'no dependencies';
-        console.log(chalk.gray(`   #${issue.number}: ${depsStr}`));
+        const noWorkStr = noWorkNeeded ? ' (no work needed)' : '';
+        console.log(chalk.gray(`   #${issue.number}: ${depsStr}${noWorkStr}`));
 
         return analyzed;
       });
 
-      return results;
+      return {
+        title: parsedObj.title || 'GitHub Issues',
+        description: parsedObj.description || 'Issues loaded from GitHub.',
+        issues: results,
+      };
     } catch (error) {
       console.log(chalk.yellow(`   Claude analysis failed, falling back to pattern matching: ${error}`));
       return this.fallbackAnalysis(issues, allIssueNumbers);
@@ -113,8 +153,8 @@ export class IssueAnalyzer {
   /**
    * Fallback to pattern matching if Claude analysis fails.
    */
-  private fallbackAnalysis(issues: GitHubIssue[], allIssueNumbers: number[]): AnalyzedIssue[] {
-    return issues.map(issue => {
+  private fallbackAnalysis(issues: GitHubIssue[], allIssueNumbers: number[]): IssueAnalysisResult {
+    const analyzedIssues = issues.map(issue => {
       const deps = this.extractDependencies(issue, allIssueNumbers);
       const paths = this.extractAffectedPaths(issue);
 
@@ -130,6 +170,12 @@ export class IssueAnalyzer {
         analyzedAt: new Date().toISOString(),
       };
     });
+
+    return {
+      title: 'GitHub Issues',
+      description: 'Issues loaded from GitHub.',
+      issues: analyzedIssues,
+    };
   }
 
   /**

@@ -5,31 +5,33 @@
   <p align="right"><sub><a href="https://www.reddit.com/r/simpsonsshitposting/s/ZB5cDcwnqU">Unedited artwork</a> by <a href="https://www.shlives.net/">shlives</a></sub></p>
 </div>
 
-Millhouse orchestrates parallel Claude Code instances to automatically implement work items. It supports two workflows:
+Millhouse orchestrates Claude instances to implement large plans with hundreds of 
+separate work items. 
 
-- **Plan Mode:** Give it a plan file (markdown) and it breaks it into work items, analyzes dependencies, and executes them in parallel.
-- **GitHub Mode:** Load GitHub issues into a worklist, analyze dependencies, and execute.
+It analyzes your plan, automatically works out the dependencies, and runs as much 
+as possible in parallel. Each item runs in an isolated git worktree, and in a fresh 
+Claude context.
 
-In both modes, Millhouse executes work items in parallel where possible, respecting dependency order.
+This is intended for unattended operation - leave Millhouse running overnight!
 
 ## Quick Start
 
-### From a Plan
+**1. Create a worklist**:
 
 ```bash
-millhouse init          # Parse ~/.claude/plans/*.md → .millhouse/worklist.json
-millhouse list          # See work items
-millhouse run           # Execute!
+millhouse init
 ```
 
-### From GitHub Issues
+Analyzes the latest Claude plan and creates a worklist (`.millhouse/worklist.json`)
+
+**2. Run it:**
 
 ```bash
-millhouse load          # Load all open issues → .millhouse/worklist.json
-millhouse load 5,6,7    # Load specific issues
-millhouse list          # See work items
-millhouse run           # Execute!
+millhouse run [--dangerously-skip-permissions]
 ```
+
+That's it. Millhouse builds a dependency graph, runs items in parallel where possible, 
+and merges everything back when done.
 
 ## Installation
 
@@ -41,21 +43,19 @@ npm install -g millhouse
 
 ### millhouse init
 
-Parse a plan file and create a worklist.
+Create a worklist from a Claude Code plan - Millhouse finds the most recent plan 
+for the current project.
 
 ```bash
-millhouse init              # Parse latest plan in ~/.claude/plans/
-millhouse init --force      # Overwrite existing worklist
+millhouse init
 ```
-
-If a worklist already exists, you'll be prompted to overwrite or append.
 
 ### millhouse list
 
 Show items in the current worklist.
 
 ```bash
-millhouse list
+millhouse list [--verbose]
 ```
 
 Displays items grouped by status (ready, blocked, completed, failed) with dependency information.
@@ -65,11 +65,13 @@ Displays items grouped by status (ready, blocked, completed, failed) with depend
 Execute pending worklist items with parallel workers.
 
 ```bash
-millhouse run                           # Run all pending items
-millhouse run -n 16                     # Use 16 parallel workers
-millhouse run --dry-run                 # Preview without executing
-millhouse run --dangerously-skip-permissions  # Unattended execution
+millhouse run                     # Run all pending items
+  -n 16                           # Use 16 parallel workers (default: 8)
+  --dry-run                       # Preview without executing
+  --dangerously-skip-permissions  # Pass to claude tool for reliable unattended execution
 ```
+
+Note: Use `--dangerously-skip-permissions` with care!
 
 ### millhouse save
 
@@ -88,7 +90,7 @@ Load GitHub issues into the worklist.
 ```bash
 millhouse load              # Load all open issues
 millhouse load 5            # Load issue #5 and linked issues
-millhouse load 5,6,7        # Load issues 5, 6, 7 and linked issues
+millhouse load 5,6,7        # Load issues 5, 6, 7 and all linked issues
 ```
 
 Uses Claude to analyze dependencies and expand sparse issues with testing instructions and acceptance criteria.
@@ -97,8 +99,6 @@ Uses Claude to analyze dependencies and expand sparse issues with testing instru
 
 ```bash
 millhouse status             # Show all runs
-millhouse status --run-id X  # Show specific run
-millhouse resume <run-id>    # Resume interrupted run
 millhouse clean              # Clean up leftover state
 ```
 
@@ -106,9 +106,7 @@ millhouse clean              # Clean up leftover state
 
 ### Dependency Analysis
 
-Dependencies can be specified explicitly or inferred:
-- Explicit markers: "Depends on #1", "Blocked by #2", "After #3"
-- For GitHub issues: Claude analyzes semantic relationships
+Claude analyzes semantic relationships between plan items to determine dependencies.
 
 ### Parallel Execution
 
@@ -126,33 +124,31 @@ Each work item runs in complete isolation:
 - On completion, branches are merged back to the run branch
 - Run branch is merged into your current branch when done
 
-## Writing Good Plans
+### Working Directory Requirements
 
-For best results, write plans that include:
+Before starting a run, Millhouse checks that your working directory is clean to prevent merge conflicts:
 
-**Clear task separation:**
-```markdown
-## 1. Create Math Utilities
-Create `src/math.ts` with add, subtract, multiply, divide functions.
+- **Gitignored files are allowed** - `.millhouse/` is automatically added to `.gitignore` on first use
+- **CLAUDE.md auto-commit** - If `CLAUDE.md` is the only untracked file, it's automatically committed
+- **Other changes must be committed** - Any other uncommitted changes or untracked files will block the run
 
-## 2. Create Calculator Class
-Create `src/calculator.ts` that uses the math utilities.
-**Depends on task 1.**
+This ensures the final merge back to your branch won't fail due to conflicts with local changes.
+
+## Creating Plans
+
+Plans are created interactively using Claude Code's plan mode:
+
+```bash
+claude
+> /plan Add user authentication with JWT
 ```
 
-**Specific implementation details:**
-```markdown
-Create `src/math.ts` with:
-- `add(a: number, b: number): number`
-- `subtract(a: number, b: number): number`
-```
+Claude will create a structured plan with numbered tasks and dependencies. The plan is saved to `~/.claude/plans/` and can then be loaded with `millhouse init`.
 
-**Testing instructions:**
-```markdown
-## Testing
-Run `npm test` - all tests should pass.
-Run `npm run build` - should compile without errors.
-```
+For best results, when discussing your plan with Claude:
+- Be specific about implementation details
+- Mention testing requirements
+- Clarify dependencies between tasks
 
 ## Development Install
 
@@ -170,27 +166,14 @@ npm link
 - Claude Code installed and authenticated
 - GitHub CLI (`gh`) authenticated (for GitHub commands)
 
-## Configuration
-
-Create `.millhouserc.json` in your project root:
-
-```json
-{
-  "execution": {
-    "concurrency": 8,
-    "baseBranch": "main",
-    "continueOnError": true
-  }
-}
-```
-
-| Option | Description | Default |
-|---|---|---|
-| `concurrency` | Max parallel Claude instances | 8 |
-| `baseBranch` | Branch to base work on | main |
-| `continueOnError` | Keep going if one item fails | true |
-
 ## Troubleshooting
+
+**"Working directory is not clean" error?**
+
+Millhouse requires a clean git state before runs. Options:
+- Commit your changes: `git add -A && git commit -m "WIP"`
+- Stash your changes: `git stash`
+- If only `CLAUDE.md` is untracked, it will be auto-committed
 
 **Worktree errors after interrupted run?**
 ```bash

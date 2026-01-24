@@ -1,5 +1,3 @@
-import { z } from 'zod';
-
 // =============================================================================
 // Work Items (abstraction for both GitHub issues and local items)
 // =============================================================================
@@ -39,6 +37,7 @@ export interface AnalyzedIssue extends GitHubIssue {
   dependencies: number[]; // Issue numbers this depends on
   analyzedAt: string;
   githubIssueNumber?: number;  // Original GitHub issue number (for commit messages)
+  noWorkNeeded?: boolean;      // True for index/meta issues that just need closing
 }
 
 // Convert AnalyzedIssue to AnalyzedWorkItem
@@ -100,23 +99,6 @@ export interface WorktreeInfo {
   createdAt: string;
 }
 
-// Configuration schema
-export const ConfigSchema = z.object({
-  execution: z.object({
-    concurrency: z.number().min(1).default(8),
-    baseBranch: z.string().default('main'),
-    maxBudgetPerIssue: z.number().positive().default(5.0),
-    maxTotalBudget: z.number().positive().default(100.0),
-    continueOnError: z.boolean().default(true),
-  }).default({}),
-  pullRequests: z.object({
-    createAsDraft: z.boolean().default(true),
-    mergeStrategy: z.enum(['merge', 'squash', 'rebase']).default('squash'),
-    branchPrefix: z.string().default('millhouse/issue-'),
-  }).default({}),
-});
-
-export type Config = z.infer<typeof ConfigSchema>;
 
 // =============================================================================
 // Worklist format (local task management)
@@ -131,6 +113,7 @@ export interface WorklistItem {
   dependencies: number[];
   status: WorklistItemStatus;
   githubIssueNumber?: number;  // Set by save/load commands
+  noWorkNeeded?: boolean;      // True for index/meta issues that just need closing
   startedAt?: string;
   completedAt?: string;
   error?: string;
@@ -141,6 +124,9 @@ export interface Worklist {
   createdAt: string;
   updatedAt: string;
   source: 'plan' | 'github';
+  title?: string;
+  description?: string;
+  indexIssueNumber?: number;
   items: WorklistItem[];
 }
 

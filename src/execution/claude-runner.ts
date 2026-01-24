@@ -3,7 +3,7 @@ import { execSync } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { AnalyzedIssue, Config } from '../types.js';
+import type { AnalyzedIssue } from '../types.js';
 
 // ES modules equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -28,7 +28,7 @@ export class ClaudeRunner {
   private dangerouslySkipPermissions: boolean;
   private onLog: LogCallback;
 
-  constructor(_config: Config, options: ClaudeRunnerOptions = {}) {
+  constructor(options: ClaudeRunnerOptions = {}) {
     this.dangerouslySkipPermissions = options.dangerouslySkipPermissions ?? false;
     this.onLog = options.onLog ?? ((issueNumber, message) => {
       console.log(`   [#${issueNumber}] ${message}`);

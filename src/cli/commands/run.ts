@@ -2,7 +2,6 @@ import chalk from 'chalk';
 import ora from 'ora';
 import readline from 'node:readline';
 import { Orchestrator } from '../../core/orchestrator.js';
-import { loadConfig } from '../../storage/config.js';
 import { JsonStore } from '../../storage/json-store.js';
 import { WorklistStore } from '../../storage/worklist-store.js';
 import { GraphBuilder } from '../../analysis/graph-builder.js';
@@ -23,6 +22,7 @@ interface RunOptions {
   display?: 'compact' | 'detailed';
   dryRun?: boolean;
   dangerouslySkipPermissions?: boolean;
+  continueOnError?: boolean;
 }
 
 async function promptUser(question: string): Promise<string> {
@@ -123,16 +123,13 @@ export async function runCommand(options: RunOptions): Promise<void> {
       githubIssueNumber: item.githubIssueNumber,
     }));
 
-    // Load config
-    const config = await loadConfig();
-
-    // Initialize components (no GitHub needed)
+    // Initialize components
     const store = new JsonStore();
     const graphBuilder = new GraphBuilder();
     const worktreeManager = new WorktreeManager();
     const progressDisplay = new ProgressDisplay({ displayMode: options.display });
 
-    const claudeRunner = new ClaudeRunner(config, {
+    const claudeRunner = new ClaudeRunner({
       dangerouslySkipPermissions: options.dangerouslySkipPermissions,
       onLog: (issueNumber, message) => {
         progressDisplay.logDetailed(issueNumber, message);
@@ -141,19 +138,17 @@ export async function runCommand(options: RunOptions): Promise<void> {
 
     const scheduler = new Scheduler({
       concurrency,
-      continueOnError: config.execution.continueOnError,
+      continueOnError: options.continueOnError ?? true,
     });
 
-    // Create orchestrator without GitHub components
+    // Create orchestrator
     const orchestrator = new Orchestrator({
-      config,
       store,
       graphBuilder,
       worktreeManager,
       claudeRunner,
       scheduler,
       progressDisplay,
-      dangerouslySkipPermissions: options.dangerouslySkipPermissions,
     });
 
     // Build graph

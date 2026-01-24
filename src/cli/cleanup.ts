@@ -2,7 +2,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
 import chalk from 'chalk';
-import type { RunState } from '../types.js';
+import type { RunState, Worklist } from '../types.js';
 
 const MILLHOUSE_DIR = '.millhouse';
 
@@ -142,6 +142,31 @@ export async function cleanupAllState(basePath: string = process.cwd()): Promise
     await fs.unlink(worktreesFile);
   } catch {
     // File might not exist
+  }
+
+  // Reset worklist items to pending
+  const worklistFile = path.join(millhouseDir, 'worklist.json');
+  try {
+    const content = await fs.readFile(worklistFile, 'utf-8');
+    const worklist = JSON.parse(content) as Worklist;
+
+    let changed = false;
+    for (const item of worklist.items) {
+      if (item.status !== 'pending') {
+        item.status = 'pending';
+        delete item.startedAt;
+        delete item.completedAt;
+        delete item.error;
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      worklist.updatedAt = new Date().toISOString();
+      await fs.writeFile(worklistFile, JSON.stringify(worklist, null, 2));
+    }
+  } catch {
+    // Worklist might not exist
   }
 }
 

@@ -1,13 +1,14 @@
 import chalk from 'chalk';
 import ora from 'ora';
 import { Orchestrator } from '../../core/orchestrator.js';
-import { loadConfig } from '../../storage/config.js';
 import { JsonStore } from '../../storage/json-store.js';
 import { GraphBuilder } from '../../analysis/graph-builder.js';
 import { WorktreeManager } from '../../execution/worktree-manager.js';
 import { ClaudeRunner } from '../../execution/claude-runner.js';
 import { Scheduler } from '../../core/scheduler.js';
 import { ProgressDisplay } from '../../cli/progress-display.js';
+
+const DEFAULT_CONCURRENCY = 8;
 
 export async function resumeCommand(runId: string): Promise<void> {
   const spinner = ora('Loading run state...').start();
@@ -26,9 +27,6 @@ export async function resumeCommand(runId: string): Promise<void> {
       process.exit(1);
     }
 
-    spinner.text = 'Loading configuration...';
-    const config = await loadConfig();
-
     // Initialize components
     spinner.text = 'Initializing components...';
     const graphBuilder = new GraphBuilder();
@@ -37,21 +35,19 @@ export async function resumeCommand(runId: string): Promise<void> {
     // Create progress display
     const progressDisplay = new ProgressDisplay();
 
-    const claudeRunner = new ClaudeRunner(config, {
+    const claudeRunner = new ClaudeRunner({
       onLog: (issueNumber, message) => {
         progressDisplay.logDetailed(issueNumber, message);
       },
     });
 
-    // Create scheduler with previous concurrency
     const scheduler = new Scheduler({
-      concurrency: config.execution.concurrency,
-      continueOnError: config.execution.continueOnError,
+      concurrency: DEFAULT_CONCURRENCY,
+      continueOnError: true,
     });
 
     // Create orchestrator
     const orchestrator = new Orchestrator({
-      config,
       store,
       graphBuilder,
       worktreeManager,

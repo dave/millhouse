@@ -1,3 +1,4 @@
+import readline from 'node:readline';
 import chalk from 'chalk';
 import { GitHubClient } from '../../github/client.js';
 import { IssueDiscoverer } from '../../github/issue-discoverer.js';
@@ -5,15 +6,34 @@ import { IssueAnalyzer } from '../../analysis/issue-analyzer.js';
 import { WorklistStore } from '../../storage/worklist-store.js';
 import type { Worklist, WorklistItem } from '../../types.js';
 
+async function prompt(question: string): Promise<string> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise(resolve => {
+    rl.question(question, answer => {
+      rl.close();
+      resolve(answer.trim().toLowerCase());
+    });
+  });
+}
+
 export async function loadCommand(issues?: string): Promise<void> {
   const store = new WorklistStore();
 
   // Check if worklist already exists
   if (await store.exists()) {
-    console.error(chalk.red('Worklist already exists.'));
-    console.log('Delete it first or run "millhouse init" to overwrite.');
-    console.log('  rm .millhouse/worklist.json');
-    process.exit(1);
+    console.log(chalk.yellow('\nWorklist already exists.\n'));
+    const choice = await prompt(
+      '  [d] Delete and create new\n  [c] Cancel\n\nChoice: '
+    );
+
+    if (choice !== 'd') {
+      console.log('Cancelled.');
+      return;
+    }
   }
 
   console.log(chalk.bold('\nLoading issues from GitHub...\n'));
@@ -66,18 +86,18 @@ export async function loadCommand(issues?: string): Promise<void> {
   // Analyze dependencies using Claude
   console.log(chalk.gray('Analyzing dependencies...'));
   const analyzer = new IssueAnalyzer();
-  const analyzedIssues = await analyzer.analyzeIssues(fetchedIssues);
+  const analysisResult = await analyzer.analyzeIssues(fetchedIssues);
 
   console.log(chalk.green(`\n✓ Analysis complete\n`));
 
   // Create mapping from GitHub issue number to internal ID
   const githubToId = new Map<number, number>();
-  analyzedIssues.forEach((issue, index) => {
+  analysisResult.issues.forEach((issue, index) => {
     githubToId.set(issue.number, index + 1);
   });
 
   // Convert to WorklistItems
-  const items: WorklistItem[] = analyzedIssues.map((issue, index) => {
+  const items: WorklistItem[] = analysisResult.issues.map((issue, index) => {
     // Convert GitHub issue number dependencies to internal IDs
     const internalDeps = issue.dependencies
       .map(dep => githubToId.get(dep))
@@ -90,6 +110,7 @@ export async function loadCommand(issues?: string): Promise<void> {
       dependencies: internalDeps,
       status: 'pending' as const,
       githubIssueNumber: issue.number,
+      noWorkNeeded: issue.noWorkNeeded,
     };
   });
 
@@ -98,6 +119,8 @@ export async function loadCommand(issues?: string): Promise<void> {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     source: 'github',
+    title: analysisResult.title,
+    description: analysisResult.description,
     items,
   };
 

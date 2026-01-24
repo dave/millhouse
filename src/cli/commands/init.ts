@@ -131,21 +131,11 @@ export async function initCommand(options: InitOptions): Promise<void> {
     } else {
       console.log(chalk.yellow('\nWorklist already exists.\n'));
       const choice = await prompt(
-        '  [o] Overwrite\n  [a] Append new items\n  [c] Cancel\n\nChoice: '
+        '  [d] Delete and create new\n  [c] Cancel\n\nChoice: '
       );
 
-      if (choice === 'c' || choice === '') {
+      if (choice !== 'd') {
         console.log('Cancelled.');
-        return;
-      }
-
-      if (choice === 'a') {
-        await appendToWorklist(store);
-        return;
-      }
-
-      if (choice !== 'o') {
-        console.log('Invalid choice. Cancelled.');
         return;
       }
     }
@@ -163,15 +153,15 @@ export async function initCommand(options: InitOptions): Promise<void> {
 
   // Parse plan using Claude
   const parser = new PlanParser();
-  const analyzedItems = await parser.parse(plan.content);
+  const parseResult = await parser.parse(plan.content);
 
-  if (analyzedItems.length === 0) {
+  if (parseResult.items.length === 0) {
     console.error(chalk.red('No work items found in plan.'));
     process.exit(1);
   }
 
   // Convert to WorklistItems
-  const items: WorklistItem[] = analyzedItems.map(item => ({
+  const items: WorklistItem[] = parseResult.items.map(item => ({
     id: item.number,
     title: item.title,
     body: item.body || '',
@@ -184,6 +174,8 @@ export async function initCommand(options: InitOptions): Promise<void> {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     source: 'plan',
+    title: parseResult.title,
+    description: parseResult.description,
     items,
   };
 
@@ -194,51 +186,3 @@ export async function initCommand(options: InitOptions): Promise<void> {
   console.log(chalk.gray('  Run "millhouse run" to execute'));
 }
 
-async function appendToWorklist(store: WorklistStore): Promise<void> {
-  const existing = await store.load();
-  if (!existing) {
-    console.error('Failed to load existing worklist.');
-    process.exit(1);
-  }
-
-  // Find latest plan for this project
-  const plan = await findLatestPlan();
-  if (!plan) {
-    console.error(chalk.red('No plan found for this project.'));
-    console.log('\nUse Claude Code plan mode to create a plan first.');
-    process.exit(1);
-  }
-
-  console.log(chalk.gray(`Using plan: ${plan.path}\n`));
-
-  // Parse plan using Claude
-  const parser = new PlanParser();
-  const analyzedItems = await parser.parse(plan.content);
-
-  if (analyzedItems.length === 0) {
-    console.error(chalk.red('No work items found in plan.'));
-    process.exit(1);
-  }
-
-  // Find the highest existing ID
-  const maxId = Math.max(...existing.items.map(i => i.id), 0);
-
-  // Convert to WorklistItems with new IDs
-  const newItems: WorklistItem[] = analyzedItems.map((item, index) => ({
-    id: maxId + index + 1,
-    title: item.title,
-    body: item.body || '',
-    dependencies: item.dependencies.map(dep => {
-      // Remap dependencies to new IDs
-      const origIndex = analyzedItems.findIndex(a => a.number === dep);
-      return origIndex >= 0 ? maxId + origIndex + 1 : dep;
-    }),
-    status: 'pending' as const,
-  }));
-
-  existing.items.push(...newItems);
-  await store.save(existing);
-
-  console.log(chalk.green(`\n✓ Appended ${newItems.length} items to worklist`));
-  console.log(chalk.gray(`  Total items: ${existing.items.length}`));
-}

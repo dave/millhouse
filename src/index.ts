@@ -15,7 +15,7 @@ const program = new Command();
 program
   .name('millhouse')
   .description('Orchestrate parallel Claude Code instances to implement work items')
-  .version('0.4.0');
+  .version('0.5.0');
 
 program
   .command('init')
@@ -36,6 +36,7 @@ program
   .option('-d, --display <mode>', 'Display mode: compact or detailed', 'compact')
   .option('--dry-run', 'Analyze and plan without executing')
   .option('--dangerously-skip-permissions', 'Skip permission prompts in spawned Claude instances')
+  .option('--no-continue-on-error', 'Stop on first failure instead of continuing')
   .action(runCommand);
 
 program

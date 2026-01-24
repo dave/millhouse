@@ -29,6 +29,7 @@ export class WorklistStore {
     const gitignorePath = path.join(this.basePath, '.gitignore');
     const entry = '.millhouse';
 
+    let modified = false;
     try {
       const content = await fs.readFile(gitignorePath, 'utf-8');
       // Check if .millhouse is already in gitignore (as whole line)
@@ -39,9 +40,24 @@ export class WorklistStore {
       // Append to existing gitignore
       const newContent = content.endsWith('\n') ? content + entry + '\n' : content + '\n' + entry + '\n';
       await fs.writeFile(gitignorePath, newContent);
+      modified = true;
     } catch {
       // No .gitignore exists, create one
       await fs.writeFile(gitignorePath, entry + '\n');
+      modified = true;
+    }
+
+    // Commit the gitignore change
+    if (modified) {
+      const { execSync } = await import('node:child_process');
+      try {
+        execSync('git add .gitignore && git commit -m "chore: add .millhouse to .gitignore"', {
+          cwd: this.basePath,
+          stdio: 'pipe',
+        });
+      } catch {
+        // Ignore commit failures (e.g., not a git repo)
+      }
     }
   }
 

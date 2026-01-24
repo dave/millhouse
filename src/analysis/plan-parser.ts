@@ -3,12 +3,18 @@ import { query } from '@anthropic-ai/claude-code';
 import type { AnalyzedIssue } from '../types.js';
 import { loadTemplate } from '../utils/template-loader.js';
 
+export interface PlanParseResult {
+  title: string;
+  description: string;
+  items: AnalyzedIssue[];
+}
+
 export class PlanParser {
   /**
    * Parse a plan into discrete work items with dependencies.
    * Claude has access to the codebase to understand existing patterns.
    */
-  async parse(planContent: string): Promise<AnalyzedIssue[]> {
+  async parse(planContent: string): Promise<PlanParseResult> {
     const template = await loadTemplate('plan-analysis.prompt.md');
     const prompt = template.replace('{{plan}}', planContent);
 
@@ -66,7 +72,7 @@ export class PlanParser {
 
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
 
-      // Parse JSON array from response
+      // Parse JSON object from response
       // Try to extract JSON from code blocks first, then raw
       let jsonText: string | null = null;
 
@@ -74,16 +80,24 @@ export class PlanParser {
       const codeBlockMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
       if (codeBlockMatch) {
         const blockContent = codeBlockMatch[1].trim();
-        if (blockContent.startsWith('[')) {
+        if (blockContent.startsWith('{') || blockContent.startsWith('[')) {
           jsonText = blockContent;
         }
       }
 
-      // Fall back to finding raw JSON array - use last match to get final output
+      // Fall back to finding raw JSON object or array
+      if (!jsonText) {
+        // Try to find JSON object first (new format)
+        const objMatch = responseText.match(/\{[\s\S]*"items"[\s\S]*\}/);
+        if (objMatch) {
+          jsonText = objMatch[0];
+        }
+      }
+
+      // Fall back to array format (legacy)
       if (!jsonText) {
         const allMatches = responseText.match(/\[[\s\S]*?\](?=\s*$|\s*```)/g);
         if (allMatches && allMatches.length > 0) {
-          // Take the last match (final output)
           jsonText = allMatches[allMatches.length - 1];
         }
       }
@@ -98,21 +112,34 @@ export class PlanParser {
 
       if (!jsonText) {
         console.log(chalk.red(`\n✗ Plan analysis failed (${elapsed}s)`));
-        // Include first 500 chars of response for debugging
         const preview = responseText.slice(0, 500);
-        throw new Error(`No JSON array found in response. Response preview: ${preview}`);
+        throw new Error(`No JSON found in response. Response preview: ${preview}`);
       }
 
       // Try to parse, with better error reporting
-      let parsed: Array<{
-        id: number;
-        title: string;
-        body: string;
-        dependencies: number[];
-      }>;
+      let parsedObj: {
+        title?: string;
+        description?: string;
+        items: Array<{
+          id: number;
+          title: string;
+          body: string;
+          dependencies: number[];
+        }>;
+      };
 
       try {
-        parsed = JSON.parse(jsonText);
+        const rawParsed = JSON.parse(jsonText);
+        // Handle both new object format and legacy array format
+        if (Array.isArray(rawParsed)) {
+          parsedObj = {
+            title: 'Implementation Plan',
+            description: 'Work items parsed from plan.',
+            items: rawParsed,
+          };
+        } else {
+          parsedObj = rawParsed;
+        }
       } catch (parseError) {
         console.log(chalk.red(`\n✗ JSON parse error (${elapsed}s)`));
         console.log(chalk.gray('JSON text (first 500 chars):'));
@@ -120,12 +147,13 @@ export class PlanParser {
         throw parseError;
       }
 
+      const parsed = parsedObj.items;
       console.log(chalk.green(`\n✓ Plan analyzed (${parsed.length} work items in ${elapsed}s)`));
 
       const allIds = parsed.map(p => p.id);
 
       // Convert to AnalyzedIssue format
-      const results: AnalyzedIssue[] = parsed.map(item => {
+      const items: AnalyzedIssue[] = parsed.map(item => {
         // Filter dependencies to only include valid IDs
         const validDeps = item.dependencies.filter(d =>
           allIds.includes(d) && d !== item.id
@@ -150,7 +178,11 @@ export class PlanParser {
         };
       });
 
-      return results;
+      return {
+        title: parsedObj.title || 'Implementation Plan',
+        description: parsedObj.description || 'Work items parsed from plan.',
+        items,
+      };
     } catch (error) {
       console.log(chalk.red('\n✗ Plan analysis failed'));
       throw new Error(`Failed to parse plan: ${error instanceof Error ? error.message : error}`);

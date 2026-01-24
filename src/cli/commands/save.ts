@@ -1,8 +1,60 @@
 import { execSync } from 'node:child_process';
+import readline from 'node:readline';
 import chalk from 'chalk';
 import ora from 'ora';
 import { WorklistStore } from '../../storage/worklist-store.js';
-import type { WorklistItem } from '../../types.js';
+import type { WorklistItem, Worklist } from '../../types.js';
+
+async function prompt(question: string): Promise<string> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise(resolve => {
+    rl.question(question, answer => {
+      rl.close();
+      resolve(answer.trim().toLowerCase());
+    });
+  });
+}
+
+function deleteGitHubIssue(issueNumber: number): void {
+  execSync(`gh issue delete ${issueNumber} --yes`, { stdio: 'ignore' });
+}
+
+async function deleteExistingIssues(worklist: Worklist, spinner: ReturnType<typeof ora>): Promise<void> {
+  // Collect all issue numbers to delete
+  const issuesToDelete: number[] = [];
+
+  for (const item of worklist.items) {
+    if (item.githubIssueNumber !== undefined) {
+      issuesToDelete.push(item.githubIssueNumber);
+    }
+  }
+
+  if (worklist.indexIssueNumber !== undefined) {
+    issuesToDelete.push(worklist.indexIssueNumber);
+  }
+
+  // Delete all issues (ignore errors - issues may have been manually deleted)
+  for (const issueNum of issuesToDelete) {
+    spinner.start(`Deleting issue #${issueNum}...`);
+    try {
+      deleteGitHubIssue(issueNum);
+      spinner.succeed(`Deleted #${issueNum}`);
+    } catch {
+      // Issue may have been manually deleted - that's fine
+      spinner.succeed(`#${issueNum} already deleted`);
+    }
+  }
+
+  // Clear issue numbers from worklist
+  for (const item of worklist.items) {
+    delete item.githubIssueNumber;
+  }
+  delete worklist.indexIssueNumber;
+}
 
 export async function saveCommand(): Promise<void> {
   const store = new WorklistStore();
@@ -16,16 +68,6 @@ export async function saveCommand(): Promise<void> {
 
   if (worklist.items.length === 0) {
     console.error(chalk.red('Worklist is empty.'));
-    process.exit(1);
-  }
-
-  // Check if any items already have issue numbers
-  const hasIssues = worklist.items.some(i => i.githubIssueNumber !== undefined);
-  if (hasIssues) {
-    console.error(chalk.red('Worklist already has GitHub issue numbers.'));
-    console.log('Cannot save again. To create new issues:');
-    console.log('  1. Delete the worklist: rm .millhouse/worklist.json');
-    console.log('  2. Run "millhouse init" or "millhouse load" again');
     process.exit(1);
   }
 
@@ -47,6 +89,26 @@ export async function saveCommand(): Promise<void> {
     process.exit(1);
   }
 
+  const spinner = ora();
+
+  // Check if any items already have issue numbers
+  const hasIssues = worklist.items.some(i => i.githubIssueNumber !== undefined) || worklist.indexIssueNumber !== undefined;
+  if (hasIssues) {
+    console.log(chalk.yellow('\nWorklist already has GitHub issues.\n'));
+    const choice = await prompt(
+      '  [d] Delete existing issues and recreate\n  [c] Cancel\n\nChoice: '
+    );
+
+    if (choice !== 'd') {
+      console.log('Cancelled.');
+      return;
+    }
+
+    console.log('');
+    await deleteExistingIssues(worklist, spinner);
+    console.log('');
+  }
+
   console.log(chalk.bold(`\nCreating ${worklist.items.length} GitHub issues...\n`));
 
   // Build dependency graph and sort topologically
@@ -54,8 +116,6 @@ export async function saveCommand(): Promise<void> {
 
   // Map internal ID -> GitHub issue number
   const idToIssue = new Map<number, number>();
-
-  const spinner = ora();
 
   for (const item of sorted) {
     spinner.start(`Creating issue: ${item.title}`);
@@ -90,11 +150,11 @@ export async function saveCommand(): Promise<void> {
       }
 
       // Create issue using gh CLI
-      const issueNumber = createGitHubIssue(item.title, body);
-      idToIssue.set(item.id, issueNumber);
-      item.githubIssueNumber = issueNumber;
+      const issue = createGitHubIssue(item.title, body);
+      idToIssue.set(item.id, issue.number);
+      item.githubIssueNumber = issue.number;
 
-      spinner.succeed(`Created #${issueNumber}: ${item.title}`);
+      spinner.succeed(`Created #${issue.number}: ${item.title}`);
     } catch (error) {
       spinner.fail(`Failed to create: ${item.title}`);
       console.error(chalk.red(`  Error: ${error instanceof Error ? error.message : error}`));
@@ -103,13 +163,17 @@ export async function saveCommand(): Promise<void> {
   }
 
   // Create index issue
+  let indexUrl: string | undefined;
   if (idToIssue.size > 0) {
     spinner.start('Creating index issue...');
 
     try {
-      const indexBody = buildIndexBody(worklist.items, idToIssue);
-      const indexNumber = createGitHubIssue('Implementation Index', indexBody);
-      spinner.succeed(`Created index issue: #${indexNumber}`);
+      const indexTitle = worklist.title || 'Implementation Index';
+      const indexBody = buildIndexBody(worklist, idToIssue);
+      const indexIssue = createGitHubIssue(indexTitle, indexBody);
+      indexUrl = indexIssue.url;
+      worklist.indexIssueNumber = indexIssue.number;
+      spinner.succeed(`Created index issue: #${indexIssue.number}`);
     } catch (error) {
       spinner.fail('Failed to create index issue');
       console.error(chalk.red(`  Error: ${error instanceof Error ? error.message : error}`));
@@ -120,10 +184,18 @@ export async function saveCommand(): Promise<void> {
   await store.save(worklist);
 
   console.log(chalk.green(`\n✓ Created ${idToIssue.size} issues`));
-  console.log(chalk.gray('  Run "millhouse run" to execute'));
+  if (indexUrl) {
+    console.log(chalk.cyan(`\n${indexUrl}`));
+  }
+  console.log(chalk.gray('\nRun "millhouse run" to execute'));
 }
 
-function createGitHubIssue(title: string, body: string): number {
+interface CreatedIssue {
+  number: number;
+  url: string;
+}
+
+function createGitHubIssue(title: string, body: string): CreatedIssue {
   // Escape for shell
   const escapedTitle = title.replace(/"/g, '\\"').replace(/`/g, '\\`');
   const escapedBody = body.replace(/"/g, '\\"').replace(/`/g, '\\`');
@@ -135,19 +207,20 @@ function createGitHubIssue(title: string, body: string): number {
 
   // Parse issue number from URL
   // Output is like: https://github.com/owner/repo/issues/123
-  const match = result.match(/issues\/(\d+)/);
+  const url = result.trim();
+  const match = url.match(/issues\/(\d+)/);
   if (!match) {
     throw new Error('Failed to parse issue number from gh output');
   }
 
-  return parseInt(match[1], 10);
+  return { number: parseInt(match[1], 10), url };
 }
 
 function buildIndexBody(
-  items: WorklistItem[],
+  worklist: Worklist,
   idToIssue: Map<number, number>
 ): string {
-  const lines = items.map(item => {
+  const lines = worklist.items.map(item => {
     const ghNum = idToIssue.get(item.id);
     if (!ghNum) return null;
 
@@ -159,18 +232,15 @@ function buildIndexBody(
       deps = ` (depends on ${depRefs})`;
     }
 
-    return `- #${ghNum} ${item.title}${deps}`;
+    // GitHub auto-expands #N to show the issue title, so we don't need to repeat it
+    return `- #${ghNum}${deps}`;
   }).filter(Boolean);
 
-  return `## Issues
+  const description = worklist.description ? `${worklist.description}\n\n` : '';
+
+  return `${description}## Issues
 
 ${lines.join('\n')}
-
-## Run
-
-\`\`\`bash
-millhouse run
-\`\`\`
 `;
 }
 

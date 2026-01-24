@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import type { Config, GitHubIssue, AnalyzedIssue, RunState, Task } from '../types.js';
+import type { GitHubIssue, AnalyzedIssue, RunState, Task } from '../types.js';
 import type { JsonStore } from '../storage/json-store.js';
 import type { GitHubClient } from '../github/client.js';
 import type { IssueDiscoverer } from '../github/issue-discoverer.js';
@@ -13,7 +13,6 @@ import type { Scheduler } from './scheduler.js';
 import type { ProgressDisplay } from '../cli/progress-display.js';
 
 interface OrchestratorOptions {
-  config: Config;
   store: JsonStore;
   graphBuilder: GraphBuilder;
   worktreeManager: WorktreeManager;
@@ -24,11 +23,9 @@ interface OrchestratorOptions {
   issueDiscoverer?: IssueDiscoverer;
   issueAnalyzer?: IssueAnalyzer;
   progressDisplay?: ProgressDisplay;
-  dangerouslySkipPermissions?: boolean;
 }
 
 export class Orchestrator {
-  private config: Config;
   private store: JsonStore;
   private graphBuilder: GraphBuilder;
   private worktreeManager: WorktreeManager;
@@ -46,7 +43,6 @@ export class Orchestrator {
   private originalBranch: string | null = null;
 
   constructor(options: OrchestratorOptions) {
-    this.config = options.config;
     this.store = options.store;
     this.graphBuilder = options.graphBuilder;
     this.worktreeManager = options.worktreeManager;
@@ -115,6 +111,7 @@ export class Orchestrator {
   /**
    * Check that the working directory is clean before starting a run.
    * Only allows files that are gitignored - all other changes must be committed or stashed.
+   * Special case: if only CLAUDE.md is untracked, auto-commit it.
    */
   private async checkWorkingDirectoryClean(): Promise<void> {
     const { execSync } = await import('node:child_process');
@@ -148,6 +145,16 @@ export class Orchestrator {
         });
 
         if (unexpectedLines.length > 0) {
+          // Special case: if only CLAUDE.md is untracked, auto-commit it
+          if (unexpectedLines.length === 1 && unexpectedLines[0] === '?? CLAUDE.md') {
+            console.log(chalk.blue('   Auto-committing CLAUDE.md...'));
+            execSync('git add CLAUDE.md && git commit -m "chore: add CLAUDE.md"', {
+              cwd: process.cwd(),
+              stdio: 'pipe',
+            });
+            return;
+          }
+
           const untracked = unexpectedLines.filter(l => l.startsWith('??'));
           const modified = unexpectedLines.filter(l => !l.startsWith('??'));
 
@@ -201,7 +208,6 @@ export class Orchestrator {
 
     // Create run state
     const runId = this.store.generateRunId();
-    const baseBranch = this.config.execution.baseBranch;
 
     // Build dependency graph
     this.graph = this.graphBuilder.build(analyzedIssues);
@@ -214,9 +220,9 @@ export class Orchestrator {
       );
     }
 
-    // Create run branch
+    // Create run branch from current branch
     console.log(chalk.blue(`   Creating run branch: millhouse/run-${runId}`));
-    const runBranch = await this.worktreeManager.createRunBranch(runId, baseBranch);
+    const runBranch = await this.worktreeManager.createRunBranch(runId, this.originalBranch!);
 
     // Initialize run state
     this.runState = {
@@ -225,7 +231,7 @@ export class Orchestrator {
       updatedAt: new Date().toISOString(),
       status: 'running',
       mode: this.githubClient ? 'github' : 'plan',
-      baseBranch,
+      baseBranch: this.originalBranch!,
       runBranch,
       issues: analyzedIssues,
       tasks: analyzedIssues.map(issue => ({

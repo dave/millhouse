@@ -59,6 +59,14 @@ Located in `prompts/`:
 - `.millhouse/worktrees/` - Git worktrees for parallel workers
 - Branches: `millhouse/run-{runId}-issue-{N}`
 
+### Working Directory Requirements
+
+Before starting a run, `checkWorkingDirectoryClean()` in the orchestrator verifies:
+- Only gitignored files can have changes (uses `git check-ignore`)
+- `.millhouse` is auto-added to `.gitignore` on first use
+- If only `CLAUDE.md` is untracked, it's auto-committed
+- Any other uncommitted changes block the run to prevent merge conflicts
+
 ## TypeScript Configuration
 
 - Strict mode enabled
@@ -71,4 +79,3 @@ Located in `prompts/`:
 - `@anthropic-ai/claude-code` - Claude Code programmatic interface
 - `graphlib` - Dependency graph operations
 - `@octokit/rest` - GitHub API
-- `zod` - Configuration schema validation
