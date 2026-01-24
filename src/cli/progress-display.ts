@@ -309,12 +309,6 @@ export class ProgressDisplay {
     return str.replace(/\x1B\[[0-9;]*m/g, '');
   }
 
-  /**
-   * Get visible width of a string (excluding ANSI codes).
-   */
-  private visibleWidth(str: string): number {
-    return this.stripAnsi(str).length;
-  }
 
   /**
    * Truncate a string to fit within maxWidth visible characters.
@@ -411,37 +405,14 @@ export class ProgressDisplay {
       const stateIcon = this.getStateIcon(issue.state);
       const stateColor = this.getStateColor(issue.state);
 
-      // Build prefix: "● #N Title │ "
-      const issueNumStr = `#${issue.number}`;
-      const separator = ' │ ';
+      // Truncate title to max 30 chars
+      const titleShort = issue.title.length > 30
+        ? issue.title.slice(0, 27) + '...'
+        : issue.title;
 
-      // Calculate how much space we have for title + message
-      // Format: "● #N Title │ Message"
-      const prefixWidth = 2 + issueNumStr.length + 1; // icon + space + #N + space
-      const separatorWidth = 3; // " │ "
-      const availableForContent = termWidth - prefixWidth - separatorWidth;
-
-      // Split available space: ~60% for title, ~40% for message (minimum 10 each)
-      const titleMaxWidth = Math.max(10, Math.floor(availableForContent * 0.6));
-      const messageMaxWidth = Math.max(10, availableForContent - titleMaxWidth);
-
-      // Truncate title
-      const titleShort = issue.title.length > titleMaxWidth
-        ? issue.title.slice(0, titleMaxWidth - 3) + '...'
-        : issue.title.padEnd(titleMaxWidth);
-
-      // Truncate message
-      const messageTrunc = issue.latestMessage.length > messageMaxWidth
-        ? issue.latestMessage.slice(0, messageMaxWidth - 3) + '...'
-        : issue.latestMessage;
-
-      // Build the line
-      let line = `${stateIcon} ${stateColor(issueNumStr)} ${chalk.gray(titleShort)}${chalk.dim(separator)}${messageTrunc}`;
-
-      // Final safety truncation in case of edge cases
-      if (this.visibleWidth(line) > termWidth) {
-        line = this.truncateToWidth(line, termWidth);
-      }
+      // Build the full line, then truncate to terminal width
+      const fullLine = `${stateIcon} ${stateColor(`#${issue.number}`)} ${chalk.gray(titleShort)} ${chalk.dim('│')} ${issue.latestMessage}`;
+      const line = this.truncateToWidth(fullLine, termWidth - 1);
 
       lines.push(line);
     }
