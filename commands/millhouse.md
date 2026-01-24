@@ -33,10 +33,12 @@ These work items will be executed by **parallel Claude Code instances**, each ru
 
 ### Instructions
 
-1. Read the plan from `plan.md` or ask for the filename
+1. Get the plan from the current conversation. If no plan exists, output an error and stop.
 2. Break the plan into discrete, parallelizable work items
 3. Identify dependencies between work items
-4. Save the JSON file to the project root
+4. **IMPORTANT: Write the JSON file to the project root using the Write tool**
+   - No name argument: write to `millhouse-plan.json`
+   - With name argument: write to `millhouse-plan-{name}.json`
 
 ### Work Item Guidelines
 

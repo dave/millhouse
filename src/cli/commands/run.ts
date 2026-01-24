@@ -2,7 +2,6 @@ import chalk from 'chalk';
 import ora from 'ora';
 import readline from 'node:readline';
 import path from 'node:path';
-import os from 'node:os';
 import { promises as fs } from 'node:fs';
 import { Orchestrator } from '../../core/orchestrator.js';
 import { loadConfig } from '../../storage/config.js';
@@ -11,7 +10,6 @@ import { GitHubClient } from '../../github/client.js';
 import { IssueDiscoverer } from '../../github/issue-discoverer.js';
 import { LabelManager } from '../../github/label-manager.js';
 import { IssueAnalyzer } from '../../analysis/issue-analyzer.js';
-import { PlanParser } from '../../analysis/plan-parser.js';
 import { GraphBuilder } from '../../analysis/graph-builder.js';
 import { WorktreeManager } from '../../execution/worktree-manager.js';
 import { ClaudeRunner } from '../../execution/claude-runner.js';
@@ -85,116 +83,6 @@ async function checkLeftoverState(): Promise<boolean> {
   return true; // No leftovers, continue
 }
 
-async function findProjectPlans(): Promise<string[]> {
-  // Convert cwd to Claude project path format: /Users/dave/src/foo -> -Users-dave-src-foo
-  const cwd = process.cwd();
-  const projectDirName = cwd.replace(/\//g, '-');
-  const projectDir = path.join(os.homedir(), '.claude', 'projects', projectDirName);
-
-  const planRefs = new Set<string>();
-
-  try {
-    const files = await fs.readdir(projectDir);
-    const jsonlFiles = files.filter(f => f.endsWith('.jsonl'));
-
-    // Search transcript files for plan references
-    for (const file of jsonlFiles) {
-      try {
-        const content = await fs.readFile(path.join(projectDir, file), 'utf-8');
-        // Match plan file paths like .claude/plans/name.md or ~/.claude/plans/name.md
-        const matches = content.match(/\.claude\/plans\/[a-z-]+\.md/g);
-        if (matches) {
-          for (const match of matches) {
-            // Extract just the filename
-            const filename = match.split('/').pop();
-            if (filename && !filename.includes('-agent-')) {
-              // Skip agent subplans
-              planRefs.add(filename);
-            }
-          }
-        }
-      } catch {
-        // Skip files we can't read
-      }
-    }
-  } catch {
-    // Project directory doesn't exist
-  }
-
-  return Array.from(planRefs);
-}
-
-async function findMostRecentPlan(): Promise<string | null> {
-  const plansDir = path.join(os.homedir(), '.claude', 'plans');
-
-  // First, get plans associated with this project
-  const projectPlans = await findProjectPlans();
-
-  try {
-    const files = await fs.readdir(plansDir);
-    const mdFiles = files.filter(f => f.endsWith('.md'));
-
-    if (mdFiles.length === 0) {
-      return null;
-    }
-
-    // Filter to only project-specific plans if we found any
-    const relevantFiles = projectPlans.length > 0
-      ? mdFiles.filter(f => projectPlans.includes(f))
-      : mdFiles;
-
-    if (relevantFiles.length === 0) {
-      return null;
-    }
-
-    const fileStats = await Promise.all(
-      relevantFiles.map(async (f) => {
-        const fullPath = path.join(plansDir, f);
-        const stat = await fs.stat(fullPath);
-        return { path: fullPath, mtime: stat.mtime };
-      })
-    );
-
-    fileStats.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
-    return fileStats[0].path;
-  } catch {
-    return null;
-  }
-}
-
-async function resolvePlanPath(planPath: string | undefined): Promise<string> {
-  // If no plan specified, find most recent plan
-  if (!planPath) {
-    const recentPlan = await findMostRecentPlan();
-    if (!recentPlan) {
-      throw new Error('No plan files found in ~/.claude/plans/');
-    }
-    return recentPlan;
-  }
-
-  // First, try the path as given
-  try {
-    await fs.access(planPath);
-    return planPath;
-  } catch {
-    // Not found locally
-  }
-
-  // If it's just a filename (no directory), check ~/.claude/plans/
-  if (!planPath.includes(path.sep) && !planPath.startsWith('.')) {
-    const claudePlansPath = path.join(os.homedir(), '.claude', 'plans', planPath);
-    try {
-      await fs.access(claudePlansPath);
-      return claudePlansPath;
-    } catch {
-      // Not found there either
-    }
-  }
-
-  // Return original path - will fail with helpful error
-  return planPath;
-}
-
 /**
  * Get the JSON plan filename for a given name.
  * No name = millhouse-plan.json
@@ -258,32 +146,19 @@ export async function runPlanCommand(plan: string | undefined, options: RunOptio
   try {
     const concurrency = parseInt(options.concurrency || '8', 10);
 
-    let analyzedIssues: AnalyzedIssue[];
-
-    // First, try to load a pre-analyzed JSON plan
-    spinner.text = 'Looking for JSON plan...';
+    // Load JSON plan
+    spinner.text = 'Loading JSON plan...';
     const jsonPlan = await loadJsonPlan(plan);
 
-    if (jsonPlan) {
-      // Use pre-analyzed JSON plan (fast path)
+    if (!jsonPlan) {
       const filename = getJsonPlanFilename(plan);
-      spinner.succeed(`Loaded JSON plan from ${filename}`);
-      analyzedIssues = jsonPlanToAnalyzedIssues(jsonPlan);
-      console.log(chalk.green(`   ✓ ${analyzedIssues.length} work item(s) ready`));
-    } else {
-      // Fall back to markdown plan analysis (slow path)
-      spinner.text = 'Loading markdown plan...';
-      const planPath = await resolvePlanPath(plan);
-      const planContent = await fs.readFile(planPath, 'utf-8');
-      spinner.succeed(`Loaded plan from ${planPath}`);
-
-      // Parse plan into work items
-      console.log(chalk.blue('\n🔍 Analyzing plan...'));
-      const planParser = new PlanParser();
-      analyzedIssues = await planParser.parse(planContent);
-      console.log(chalk.green(`   ✓ Created ${analyzedIssues.length} work item(s)`));
-      console.log(chalk.gray(`   Tip: Run /millhouse plan to create a JSON plan for faster execution`));
+      spinner.fail(`JSON plan not found: ${filename}`);
+      console.log(chalk.gray(`\n   Run /millhouse plan in Claude Code to create the JSON plan first.`));
+      process.exit(1);
     }
+
+    spinner.succeed(`Loaded ${jsonPlan.items.length} work item(s) from ${getJsonPlanFilename(plan)}`);
+    const analyzedIssues = jsonPlanToAnalyzedIssues(jsonPlan);
 
     // Load config
     const config = await loadConfig();
