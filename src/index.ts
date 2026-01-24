@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { createRequire } from 'module';
 import { Command } from 'commander';
 import { initCommand } from './cli/commands/init.js';
 import { listCommand } from './cli/commands/list.js';
@@ -10,12 +11,15 @@ import { statusCommand } from './cli/commands/status.js';
 import { resumeCommand } from './cli/commands/resume.js';
 import { cleanCommand } from './cli/commands/clean.js';
 
+const require = createRequire(import.meta.url);
+const { version } = require('../package.json');
+
 const program = new Command();
 
 program
   .name('millhouse')
   .description('Orchestrate parallel Claude Code instances to implement work items')
-  .version('0.5.0');
+  .version(version);
 
 program
   .command('init')
