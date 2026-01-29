@@ -73,7 +73,14 @@ export class WorklistStore {
   async load(): Promise<Worklist | null> {
     try {
       const content = await fs.readFile(this.worklistPath, 'utf-8');
-      return JSON.parse(content) as Worklist;
+      const worklist = JSON.parse(content) as Worklist;
+      // Default missing status to 'pending'
+      for (const item of worklist.items) {
+        if (!item.status) {
+          item.status = 'pending';
+        }
+      }
+      return worklist;
     } catch {
       return null;
     }
