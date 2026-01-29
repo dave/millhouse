@@ -141,6 +141,10 @@ export class Orchestrator {
         const unexpectedLines = lines.filter(line => {
           // Extract the file path (status is first 2 chars, then space, then path)
           const filePath = line.slice(3);
+          // Always ignore .millhouse/ internal working files
+          if (filePath.startsWith('.millhouse/') || filePath === '.millhouse') {
+            return false;
+          }
           return !isGitIgnored(filePath);
         });
 
