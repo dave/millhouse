@@ -139,8 +139,9 @@ export class Orchestrator {
         const lines = status.split('\n');
         // Filter out gitignored files
         const unexpectedLines = lines.filter(line => {
-          // Extract the file path (status is first 2 chars, then space, then path)
-          const filePath = line.slice(3);
+          // Extract the file path from porcelain status line
+          // Format is "XY PATH" but XY may be shortened, so find path after leading status chars
+          const filePath = line.replace(/^[ MADRCU?!]{1,2}\s/, '');
           // Always ignore .millhouse/ internal working files
           if (filePath.startsWith('.millhouse/') || filePath === '.millhouse') {
             return false;
