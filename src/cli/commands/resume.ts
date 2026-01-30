@@ -91,6 +91,17 @@ export async function resumeCommand(runId: string): Promise<void> {
       console.log(chalk.green('\n✅ All items completed successfully!'));
     } else if (result.status === 'failed') {
       console.log(chalk.red(`\n❌ Run failed: ${result.error}`));
+      console.log(`   Completed: ${result.completedIssues.length}`);
+      console.log(`   Failed: ${result.failedIssues.length}`);
+      for (const failedId of result.failedIssues) {
+        const task = result.tasks.find(t => t.issueNumber === failedId);
+        const issue = result.issues.find(i => i.number === failedId);
+        const title = issue?.title || `Issue #${failedId}`;
+        console.log(chalk.red(`\n   #${failedId} ${title}`));
+        if (task?.error) {
+          console.log(chalk.gray(`   Error: ${task.error}`));
+        }
+      }
       process.exit(1);
     }
   } catch (error) {

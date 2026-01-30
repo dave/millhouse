@@ -189,6 +189,15 @@ export async function runCommand(options: RunOptions): Promise<void> {
       console.log(chalk.red(`\n❌ Run failed: ${result.error}`));
       console.log(`   Completed: ${result.completedIssues.length}`);
       console.log(`   Failed: ${result.failedIssues.length}`);
+      for (const failedId of result.failedIssues) {
+        const task = result.tasks.find(t => t.issueNumber === failedId);
+        const issue = analyzedIssues.find(i => i.number === failedId);
+        const title = issue?.title || `Issue #${failedId}`;
+        console.log(chalk.red(`\n   #${failedId} ${title}`));
+        if (task?.error) {
+          console.log(chalk.gray(`   Error: ${task.error}`));
+        }
+      }
       process.exit(1);
     }
   } catch (error) {

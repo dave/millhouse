@@ -176,10 +176,15 @@ export class ClaudeRunner {
       }
 
       if (hasError) {
+        // Include Claude's last output for context on what went wrong
+        const lastMessages = messages.slice(-3).join('\n').trim();
+        const errorWithContext = lastMessages
+          ? `${errorMessage}\n\nClaude's last output:\n${lastMessages}`
+          : errorMessage;
         return {
           success: false,
           commits: [],
-          error: errorMessage,
+          error: errorWithContext,
           output: messages.join('\n'),
         };
       }
