@@ -289,9 +289,15 @@ export class Orchestrator {
     this.runState.updatedAt = new Date().toISOString();
     await this.store.saveRun(this.runState);
 
-    // Initialize progress display
+    // Initialize progress display and mark already-completed/failed issues
     if (this.progressDisplay) {
       this.progressDisplay.initialize(runState.issues);
+      for (const issueNumber of runState.completedIssues) {
+        this.progressDisplay.handleEvent({ type: 'issue-completed', issueNumber });
+      }
+      for (const issueNumber of runState.failedIssues) {
+        this.progressDisplay.handleEvent({ type: 'issue-failed', issueNumber, error: 'Failed in previous run' });
+      }
       this.progressDisplay.start();
     }
 
